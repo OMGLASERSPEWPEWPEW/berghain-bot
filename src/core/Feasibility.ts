@@ -2,23 +2,16 @@
 import type { AttributeStatistics, CurrentState, Person } from "./types";
 
 /**
- * Global parameters and helpers for feasibility math.
- * We now schedule Z (safety) by seats remaining:
- *   - seats ≥ 600  -> Z = 0.90 (more aggressive early)
- *   - 600 > seats ≥ 250 -> Z = 1.15 (balanced mid-game)
- *   - seats < 250 -> Z = 1.35 (more conservative late)
+ * Parameters controlling how conservative we are.
+ * Z is a one-sided safety margin in units of standard deviations.
+ *   - 0.0  ~ use pure expectation (aggressive)
+ *   - 1.0  ~ ~84% one-sided comfort
+ *   - 1.3  ~ ~90%
+ *   - 1.65 ~ ~95%
  */
 export const VENUE_CAPACITY = 1000;
-
-/** Lower than before (was 0.8): allow filler a bit earlier when safe. */
-export const FILLER_MIN_SLACK = 0.5;
-
-/** Piecewise schedule for the safety buffer Z based on remaining seats. */
-export function safetyZForSeats(seatsRemaining: number): number {
-  if (seatsRemaining >= 600) return 0.90;
-  if (seatsRemaining >= 250) return 1.15;
-  return 1.35;
-}
+export const SAFETY_Z = 1.15;        // mild buffer; we’ll tune later
+export const FILLER_MIN_SLACK = 0.8; // require at least ~0.8 expected spare across all constraints to accept filler
 
 export type FeasibilityPerAttr = {
   need: number;       // remaining required count after the hypothetical decision
@@ -68,8 +61,7 @@ export function evaluateDecisionFeasibility(
   person: Person | null,
   acceptSeat: boolean
 ): FeasibilityResult {
-  const seats = Math.max(0, remainingSeats(state, acceptSeat));
-  const Z = safetyZForSeats(seats);
+  const seats = remainingSeats(state, acceptSeat);
   const pmap = stats.relativeFrequencies;
   const perAttr: Record<string, FeasibilityPerAttr> = {};
 
@@ -89,10 +81,10 @@ export function evaluateDecisionFeasibility(
 
   for (const [attr, need] of Object.entries(deficits)) {
     const p = clamp01(pmap[attr] ?? 0);
-    const expected = p * seats;
-    const var_ = p * (1 - p) * seats;
+    const expected = p * Math.max(0, seats);
+    const var_ = p * (1 - p) * Math.max(0, seats);
     const sd = Math.sqrt(var_);
-    const slack = expected - Z * sd - need;
+    const slack = expected - SAFETY_Z * sd - need;
     const ok = slack >= 0;
 
     perAttr[attr] = { need, expected, sd, slack, feasible: ok };
@@ -103,12 +95,13 @@ export function evaluateDecisionFeasibility(
     }
   }
 
+  // If there are no constrained attributes (shouldn’t happen), treat as feasible.
   if (!isFinite(minSlack)) {
     minSlack = 0;
     minSlackAttr = null;
   }
 
-  return { feasible, seatsRemaining: seats, perAttr, minSlack, minSlackAttr };
+  return { feasible, seatsRemaining: Math.max(0, seats), perAttr, minSlack, minSlackAttr };
 }
 
 function clamp01(x: number): number {

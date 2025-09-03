@@ -4,10 +4,10 @@ import { ChallengeClient } from "./api/ChallengeClient";
 import { config } from "./config/defaults";
 import type { DecideAndNextResponse, DecideAndNextRunning } from "./core/types";
 import { initState } from "./core/StateTracker";
-import { DeficitGreedy } from "./strategy/DeficitGreedy";
 import { logScenarioIntro, logFinalSummary } from "./logging/Reporter";
+import { PacedFeasible } from "./strategy/PacedFeasible";
+import { VENUE_CAPACITY, evaluateDecisionFeasibility } from "./core/Feasibility";
 
-const VENUE_CAPACITY = 1000;
 const MAX_REJECTIONS = 20000;
 
 async function runOnce(): Promise<number> {
@@ -17,14 +17,14 @@ async function runOnce(): Promise<number> {
   const api = new ChallengeClient(config.PLAYER_ID);
   const newGame = await api.startNewGame(config.SCENARIO);
 
-  // Print constraints + distributions so you can see exactly what the game gave us.
+  // Print constraints + distributions.
   logScenarioIntro(newGame.constraints, newGame.attributeStatistics);
 
   const state = initState(newGame.constraints, newGame.attributeStatistics);
 
   let decisionForPrev: boolean | undefined = undefined;
   let personIndex = 0;
-  const strategy = new DeficitGreedy();
+  const strategy = new PacedFeasible();
 
   while (true) {
     let res: DecideAndNextResponse;
@@ -40,6 +40,8 @@ async function runOnce(): Promise<number> {
         err.response.data.error.toLowerCase().includes("finished")
       ) {
         console.log("src/index.ts:%s - SERVER SAYS FINISHED", fn);
+        // If the server finished, we must have reached capacity; reflect that in the local summary.
+        state.admittedCount = VENUE_CAPACITY;
         logFinalSummary(state);
         return state.rejectedCount;
       }
@@ -48,7 +50,8 @@ async function runOnce(): Promise<number> {
 
     if (res.status === "completed") {
       console.log("src/index.ts:%s - GAME COMPLETED", fn);
-      // Sync the final rejected count for the summary
+      // Reflect final counts locally for accurate recap
+      state.admittedCount = VENUE_CAPACITY; // venue must be full on completion
       state.rejectedCount = res.rejectedCount;
       logFinalSummary(state);
       return res.rejectedCount;
@@ -60,7 +63,23 @@ async function runOnce(): Promise<number> {
     state.admittedCount = running.admittedCount;
     state.rejectedCount = running.rejectedCount;
 
-    // Early exit if limits are reached
+    // Progress ping ~every 100 arrivals (uses REJECT hypothetical to estimate current bottleneck)
+    const arrivalsSeen = state.admittedCount + state.rejectedCount;
+    if (arrivalsSeen > 0 && arrivalsSeen % 100 === 0) {
+      const evalReject = evaluateDecisionFeasibility(state, state.statistics, null, false);
+      console.log(
+        "src/index.ts:%s - PROGRESS t=%d seats=%d bottleneck=%s slack=%s admitted=%d rejected=%d",
+        fn,
+        arrivalsSeen,
+        evalReject.seatsRemaining,
+        evalReject.minSlackAttr ?? "n/a",
+        evalReject.minSlack.toFixed(2),
+        state.admittedCount,
+        state.rejectedCount
+      );
+    }
+
+    // Early exit if limits reached
     if (state.admittedCount >= VENUE_CAPACITY || state.rejectedCount >= MAX_REJECTIONS) {
       console.log(
         "src/index.ts:%s - LIMIT REACHED | admitted=%d rejected=%d",
@@ -74,10 +93,10 @@ async function runOnce(): Promise<number> {
 
     const nextPerson = running.nextPerson;
 
-    // Decide for this person now; the server applies it on the next request.
+    // Decide for this person; server applies it on the next request.
     const accept = strategy.shouldAdmitPerson(state, nextPerson);
 
-    // Update only attribute tallies locally (totals come from server on next loop)
+    // Update only attribute tallies locally if we accepted (totals come from server next tick).
     if (accept) {
       for (const [attr, val] of Object.entries(nextPerson.attributes)) {
         if (val && attr in state.admittedAttributes) {

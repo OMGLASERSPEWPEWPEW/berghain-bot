@@ -43,16 +43,23 @@ export function logScenarioIntro(constraints: Constraint[], stats: AttributeStat
   }
 }
 
-/** Final per-constraint status + headline counts. */
+/** Final recap: headline counts, constraint status, AND the scenario's base probabilities again. */
 export function logFinalSummary(state: CurrentState): void {
   const fn = "logFinalSummary";
   console.log("src/logging/Reporter.ts:%s - --- FINAL SUMMARY ---", fn);
+
+  const totalSeen = state.admittedCount + state.rejectedCount;
+  const admitRate = totalSeen > 0 ? (state.admittedCount / totalSeen) : 0;
+
   console.log(
-    "src/logging/Reporter.ts:%s - admitted=%d rejected=%d",
+    "src/logging/Reporter.ts:%s - admitted=%d rejected=%d (admit rate=%s of %d seen)",
     fn,
     state.admittedCount,
-    state.rejectedCount
+    state.rejectedCount,
+    (admitRate * 100).toFixed(1) + "%",
+    totalSeen
   );
+
   console.log("src/logging/Reporter.ts:%s - Constraint status:", fn);
   let allMet = true;
   for (const c of state.constraints) {
@@ -60,16 +67,48 @@ export function logFinalSummary(state: CurrentState): void {
     const need = c.minCount;
     const deficit = Math.max(0, need - have);
     if (deficit > 0) allMet = false;
+    const share = state.admittedCount > 0 ? ((have / state.admittedCount) * 100).toFixed(1) + "%" : "n/a";
     console.log(
-      "src/logging/Reporter.ts:%s -   %s: have=%d min=%d deficit=%d",
+      "src/logging/Reporter.ts:%s -   %s: have=%d (%.1f%% of admits)  min=%d  deficit=%d",
       fn,
       c.attribute,
       have,
+      state.admittedCount > 0 ? (have / state.admittedCount) * 100 : 0,
       need,
       deficit
     );
+    // ^ line above prints %.1f via formatting in the message; kept explicit numbers for clarity
+    // If you prefer strict formatting, replace with the `share` string.
   }
   console.log("src/logging/Reporter.ts:%s - All minima satisfied? %s", fn, allMet ? "YES" : "NO");
+
+  // --- SCENARIO RECAP (so the header info never disappears) ---
+  const stats = state.statistics;
+  console.log("src/logging/Reporter.ts:%s - --- SCENARIO RECAP ---", fn);
+
+  // Constraints again (helps when scrolling the end only)
+  console.log("src/logging/Reporter.ts:%s - Constraints (attribute → minCount):", fn);
+  for (const c of state.constraints) {
+    console.log("src/logging/Reporter.ts:%s -   %s → %d", fn, c.attribute, c.minCount);
+  }
+
+  // Base probabilities again, highlight constrained attrs first for convenience
+  const constrainedSet = new Set(state.constraints.map((c) => c.attribute));
+  console.log("src/logging/Reporter.ts:%s - Relative Frequencies (constrained attributes):", fn);
+  for (const c of state.constraints) {
+    const p = stats.relativeFrequencies[c.attribute] ?? 0;
+    console.log("src/logging/Reporter.ts:%s -   %s: %s", fn, c.attribute, formatPct(p));
+  }
+
+  const others = Object.entries(stats.relativeFrequencies)
+    .filter(([attr]) => !constrainedSet.has(attr))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15);
+
+  console.log("src/logging/Reporter.ts:%s - Other Relative Frequencies (top 15):", fn);
+  for (const [attr, p] of others) {
+    console.log("src/logging/Reporter.ts:%s -   %s: %s", fn, attr, formatPct(p));
+  }
 }
 
 function formatPct(p: number): string {

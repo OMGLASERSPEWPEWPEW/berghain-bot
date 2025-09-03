@@ -5,6 +5,7 @@ import { config } from "./config/defaults";
 import type { DecideAndNextResponse, DecideAndNextRunning } from "./core/types";
 import { initState } from "./core/StateTracker";
 import { logScenarioIntro, logFinalSummary } from "./logging/Reporter";
+import { reportGameComplete } from "./discord/ResultsReporter";
 import { PacedFeasible } from "./strategy/PacedFeasible";
 import { VENUE_CAPACITY, evaluateDecisionFeasibility } from "./core/Feasibility";
 
@@ -54,6 +55,10 @@ async function runOnce(): Promise<number> {
       state.admittedCount = VENUE_CAPACITY; // venue must be full on completion
       state.rejectedCount = res.rejectedCount;
       logFinalSummary(state);
+      
+      // Report successful completion to Discord
+      await reportGameComplete(state, config.SCENARIO, "completed");
+      
       return res.rejectedCount;
     }
 
@@ -88,6 +93,11 @@ async function runOnce(): Promise<number> {
         state.rejectedCount
       );
       logFinalSummary(state);
+      
+      // Report failure to Discord
+      const gameStatus = state.admittedCount >= VENUE_CAPACITY ? "completed" : "failed";
+      await reportGameComplete(state, config.SCENARIO, gameStatus);
+      
       return state.rejectedCount;
     }
 

@@ -1,46 +1,27 @@
+// File: tsconfig.json (relative to project root)
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
-    // File Layout
+    // Targets modern Node (v18+)
+    "target": "ES2020",
+
+    // CommonJS for ts-node simplicity
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+
+    // Interop so `import axios from "axios"` works cleanly
+    "esModuleInterop": true,
+
+    // Sensible TS defaults
+    "strict": true,
+    "skipLibCheck": true,
+
+    // Project layout
     "rootDir": "src",
     "outDir": "dist",
 
-    // Environment Settings
-    // See also https://aka.ms/tsconfig/module
-    "module": "commonjs",
-    "target": "es2020",
-    "types": [],
-    // For nodejs:
-    // "lib": ["esnext"],
-    // "types": ["node"],
-    // and npm install -D @types/node
-
-    // Other Outputs
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
-
-    // Stricter Typechecking Options
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-
-    // Style Options
-    // "noImplicitReturns": true,
-    // "noImplicitOverride": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
-    // "noFallthroughCasesInSwitch": true,
-    // "noPropertyAccessFromIndexSignature": true,
-
-    // Recommended Options
-    "strict": true,
-    "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
-
-    "esModuleInterop": true,
-  }
+    // Handy but optional
+    "resolveJsonModule": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"]
 }

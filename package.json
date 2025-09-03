@@ -1,9 +1,11 @@
 {
   "name": "berghain-bot",
-  "version": "1.0.0",
-  "main": "index.js",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phase 1 minimal playable bot for the Berghain Challenge.",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc -p .",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
@@ -12,19 +14,14 @@
     "scenario:2": "cross-env SCENARIO=2 ts-node src/index.ts",
     "scenario:3": "cross-env SCENARIO=3 ts-node src/index.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "axios": "^1.11.0",
-    "dotenv": "^17.2.2",
-    "zod": "^4.1.5"
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
-    "@types/node": "^24.3.0",
-    "cross-env": "^10.0.0",
+    "@types/node": "^20.14.12",
+    "cross-env": "^7.0.3",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.5.4"
   }
 }

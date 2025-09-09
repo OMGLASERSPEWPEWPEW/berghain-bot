@@ -38,6 +38,9 @@ export class PacedFeasible implements Strategy {
 
     const deficits = computeDeficits(state);
 
+    // Count how many constraints still have a deficit > 0.
+    const unmetConstraintsCount = Object.values(deficits).filter(v => v > 0).length;
+
     // If every minimum is met, fill remaining seats freely.
     if (allMinimaMet(deficits)) {
       console.log("src/strategy/PacedFeasible.ts:%s - ACCEPT filler (all minima satisfied)", fn);
@@ -90,30 +93,85 @@ export class PacedFeasible implements Strategy {
         return true;
       }
 
-      // Both feasible OR both infeasible: accept if we don't make the bottleneck worse.
-      if (deltaSlack >= PacedFeasible.HELPER_EPS) {
-        console.log(
-          "src/strategy/PacedFeasible.ts:%s - ACCEPT helper (Δslack=%s; accept bottleneck=%s slack=%s vs reject %s/%s)",
-          fn,
-          deltaSlack.toFixed(2),
-          bottleA,
-          evalAccept.minSlack.toFixed(2),
-          bottleR,
-          evalReject.minSlack.toFixed(2)
-        );
-        return true;
+
+
+      // Both feasible OR both infeasible: apply different logic based on the number of unmet constraints.
+
+      if (unmetConstraintsCount === 1) {
+        // --- END-GAME LOGIC (1 Constraint Left) ---
+        // The original logic fails here, so we switch to the more accurate 'trueDeltaSlack'
+        // to ensure we accept the final, critical helpers.
+        const originalBottleneckAttr = evalReject.minSlackAttr;
+        let trueDeltaSlackForBottleneck: number;
+
+        if (originalBottleneckAttr && evalAccept.perAttr[originalBottleneckAttr]) {
+          const newSlackForOldBottleneck = evalAccept.perAttr[originalBottleneckAttr].slack;
+          trueDeltaSlackForBottleneck = newSlackForOldBottleneck - evalReject.minSlack;
+        } else {
+          trueDeltaSlackForBottleneck = evalAccept.minSlack - evalReject.minSlack; // Fallback
+        }
+
+        if (trueDeltaSlackForBottleneck >= PacedFeasible.HELPER_EPS) {
+          console.log(
+            "src/strategy/PacedFeasible.ts:%s - ACCEPT helper (End-game logic: true Δslack for '%s' is %.2f)",
+            fn,
+            bottleR,
+            trueDeltaSlackForBottleneck
+          );
+          return true;
+        } else {
+          console.log(
+            "src/strategy/PacedFeasible.ts:%s - REJECT helper (End-game logic: true Δslack for '%s' is %.2f)",
+            fn,
+            bottleR,
+            trueDeltaSlackForBottleneck
+          );
+          return false;
+        }
       } else {
-        console.log(
-          "src/strategy/PacedFeasible.ts:%s - REJECT helper (Δslack=%s worsens bottleneck; accept %s/%s vs reject %s/%s)",
-          fn,
-          deltaSlack.toFixed(2),
-          bottleA,
-          evalAccept.minSlack.toFixed(2),
-          bottleR,
-          evalReject.minSlack.toFixed(2)
-        );
-        return false;
+        // --- STANDARD CONSERVATIVE LOGIC (>1 Constraint Left) ---
+        // Use the original, stricter 'deltaSlack' logic that preserves seats effectively.
+        if (deltaSlack >= PacedFeasible.HELPER_EPS) {
+          console.log(
+            "src/strategy/PacedFeasible.ts:%s - ACCEPT helper (Standard logic; Δslack=%s)",
+            fn,
+            deltaSlack.toFixed(2)
+          );
+          return true;
+        } else {
+          console.log(
+            "src/strategy/PacedFeasible.ts:%s - REJECT helper (Standard logic; Δslack=%s)",
+            fn,
+            deltaSlack.toFixed(2)
+          );
+          return false;
+        }
       }
+      
+      // // Both feasible OR both infeasible: accept if we don't make the bottleneck worse.
+      // if (deltaSlack >= PacedFeasible.HELPER_EPS) {
+      //   console.log(
+      //     "src/strategy/PacedFeasible.ts:%s - ACCEPT helper (Δslack=%s; accept bottleneck=%s slack=%s vs reject %s/%s)",
+      //     fn,
+      //     deltaSlack.toFixed(2),
+      //     bottleA,
+      //     evalAccept.minSlack.toFixed(2),
+      //     bottleR,
+      //     evalReject.minSlack.toFixed(2)
+      //   );
+      //   return true;
+      // } else {
+      //   console.log(
+      //     "src/strategy/PacedFeasible.ts:%s - REJECT helper (Δslack=%s worsens bottleneck; accept %s/%s vs reject %s/%s)",
+      //     fn,
+      //     deltaSlack.toFixed(2),
+      //     bottleA,
+      //     evalAccept.minSlack.toFixed(2),
+      //     bottleR,
+      //     evalReject.minSlack.toFixed(2)
+      //   );
+      //   return false;
+      // }
     }
 
     // Filler: only accept when it’s clearly safe and a bit better than rejecting.

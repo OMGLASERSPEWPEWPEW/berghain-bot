@@ -68,6 +68,16 @@ async function runOnce(): Promise<number> {
     state.admittedCount = running.admittedCount;
     state.rejectedCount = running.rejectedCount;
 
+    // If the game is over, the server sends no next person. Break the loop cleanly.
+    if (!running.nextPerson) {
+      console.log("src/index.ts:%s - No next person; game has ended. Exiting loop.", fn);
+      logFinalSummary(state);
+      // Optional: Report completion if you have that function
+      // await reportGameComplete(state, config.SCENARIO, res.status);
+      return state.rejectedCount;
+    }
+
+
     // Progress ping ~every 100 arrivals (uses REJECT hypothetical to estimate current bottleneck)
     const arrivalsSeen = state.admittedCount + state.rejectedCount;
     if (arrivalsSeen > 0 && arrivalsSeen % 100 === 0) {

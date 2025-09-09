@@ -31,7 +31,7 @@ import {
  */
 export class PacedFeasible implements Strategy {
   private static readonly HELPER_EPS = 0.0;   // we accept helpers on tie or better
-  private static readonly FILLER_MARGIN = 0.5; // filler must improve slack by a bit
+  private static readonly FILLER_MARGIN = 0.3; // filler must improve slack by a bit
 
   shouldAdmitPerson(state: CurrentState, next: Person): boolean {
     const fn = "shouldAdmitPerson";

@@ -5,6 +5,8 @@ import { config } from "../config/defaults";
 import { VENUE_CAPACITY } from "../core/Feasibility";
 
 /** Discord bot endpoint configuration */
+/** Toggle to disable Discord reporting entirely */
+const DISCORD_ENABLED = false;
 const DISCORD_BOT_BASE_URL = "http://192.168.1.105:3000";
 const BERGHAIN_RESULTS_ENDPOINT = "/berghain-results";
 
@@ -46,6 +48,12 @@ export async function reportGameComplete(
   gameStatus: "completed" | "failed"
 ): Promise<void> {
   const fn = "reportGameComplete";
+  
+  if (!DISCORD_ENABLED) {
+    console.log("src/discord/ResultsReporter.ts:%s - Discord reporting disabled", fn);
+    return;
+  }
+  
   console.log("src/discord/ResultsReporter.ts:%s - reporting scenario %d status %s rejections %d", 
     fn, scenario, gameStatus, state.rejectedCount);
   

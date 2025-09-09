@@ -11,7 +11,7 @@ import type { AttributeStatistics, CurrentState, Person } from "./types";
  */
 export const VENUE_CAPACITY = 1000;
 export const SAFETY_Z = 1.15;        // mild buffer; we’ll tune later
-export const FILLER_MIN_SLACK = 0.8; // require at least ~0.8 expected spare across all constraints to accept filler
+export const FILLER_MIN_SLACK = 0.4; // require at least ~0.8 expected spare across all constraints to accept filler
 
 export type FeasibilityPerAttr = {
   need: number;       // remaining required count after the hypothetical decision
@@ -89,10 +89,11 @@ export function evaluateDecisionFeasibility(
 
     perAttr[attr] = { need, expected, sd, slack, feasible: ok };
     if (!ok) feasible = false;
-    if (slack < minSlack) {
-      minSlack = slack;
-      minSlackAttr = attr;
-    }
+
+    if (need > 0 && slack < minSlack) {
+          minSlack = slack;
+          minSlackAttr = attr;
+        }
   }
 
   // If there are no constrained attributes (shouldn’t happen), treat as feasible.

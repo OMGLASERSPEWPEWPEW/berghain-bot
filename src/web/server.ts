@@ -4,6 +4,7 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import path from 'path';
 import { config } from '../config/defaults';
+import { dashboardEvents } from '../web/DashboardEvents';
 
 const app = express();
 const server = createServer(app);
@@ -13,6 +14,10 @@ const io = new SocketIOServer(server, {
     methods: ["GET", "POST"]
   }
 });
+
+
+
+
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../../public')));
@@ -32,10 +37,31 @@ io.on('connection', (socket) => {
   });
 });
 
+
+// Connect dashboard events to Socket.IO
+dashboardEvents.onGameStarted((data) => {
+  console.log("src/web/server.ts:dashboardEvents.onGameStarted - forwarding to %d clients", io.sockets.sockets.size);
+  io.emit('gameStarted', data);
+});
+
+dashboardEvents.onStateUpdate((data) => {
+  io.emit('stateUpdate', data);
+});
+
+dashboardEvents.onDecision((data) => {
+  console.log("src/web/server.ts:dashboardEvents.onDecision - forwarding decision to clients");
+  io.emit('decision', data);
+});
+
+dashboardEvents.onGameCompleted((data) => {
+  console.log("src/web/server.ts:dashboardEvents.onGameCompleted - forwarding completion to clients");
+  io.emit('gameCompleted', data);
+});
+
 // Export io for use by bot
 export { io };
 
-// Start server
+// Auto-start server when imported
 const PORT = process.env.WEB_PORT || 3001;
 server.listen(PORT, () => {
   const fn = "server.listen";

@@ -6,6 +6,7 @@ import type { DecideAndNextResponse, DecideAndNextRunning } from "./core/types";
 import { initState } from "./core/StateTracker";
 import { logScenarioIntro, logFinalSummary } from "./logging/Reporter";
 import { reportGameComplete } from "./discord/ResultsReporter";
+import { dashboardEvents } from './web/DashboardEvents';
 import { PacedFeasible } from "./strategy/PacedFeasible";
 import { VENUE_CAPACITY, evaluateDecisionFeasibility } from "./core/Feasibility";
 
@@ -20,6 +21,13 @@ async function runOnce(): Promise<number> {
 
   // Print constraints + distributions.
   logScenarioIntro(newGame.constraints, newGame.attributeStatistics);
+
+  // Emit game started event for dashboard
+  dashboardEvents.emitGameStarted({
+    scenario: config.SCENARIO,
+    constraints: newGame.constraints,
+    gameId: newGame.gameId
+  });
 
   const state = initState(newGame.constraints, newGame.attributeStatistics);
 
@@ -115,6 +123,22 @@ async function runOnce(): Promise<number> {
 
     // Decide for this person; server applies it on the next request.
     const accept = strategy.shouldAdmitPerson(state, nextPerson);
+
+    // Emit decision event for dashboard
+    dashboardEvents.emitDecision({
+      personIndex: nextPerson.personIndex,
+      person: nextPerson,
+      accept,
+      reason: accept ? "Strategy approved" : "Strategy rejected",
+      timestamp: Date.now()
+    });
+
+    // Emit state update with feasibility analysis
+    const feasibility = evaluateDecisionFeasibility(state, state.statistics, null, false);
+    dashboardEvents.emitStateUpdate({
+      ...state,
+      feasibility
+    });
 
     // Update only attribute tallies locally if we accepted (totals come from server next tick).
     if (accept) {

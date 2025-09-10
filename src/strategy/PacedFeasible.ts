@@ -129,6 +129,30 @@ export class PacedFeasible implements Strategy {
           return false;
         }
       } else {
+
+          // --- BOTH FEASIBLE OR BOTH INFEASIBLE ---
+          // NEW: When 1 or 2 constraints remain, prefer taking a helper if accepting is feasible,
+          // regardless of a small negative Δslack. This prevents the 20,000-reject stall.
+          if (unmetConstraintsCount <= 2) {
+          if (evalAccept.feasible) {
+            console.log(
+              "src/strategy/PacedFeasible.ts:%s - ACCEPT helper (≤2 constraints remain; feasible despite Δslack=%s)",
+              fn,
+              deltaSlack.toFixed(2)
+            );
+            return true;
+          } else {
+            // both infeasible: still prefer helper to reduce actual deficit
+            console.log(
+              "src/strategy/PacedFeasible.ts:%s - ACCEPT helper (≤2 constraints remain; both infeasible; Δslack=%s)",
+              fn,
+              deltaSlack.toFixed(2)
+            );
+            return true;
+          }
+        }
+
+
         // --- STANDARD CONSERVATIVE LOGIC (>1 Constraint Left) ---
         // Use the original, stricter 'deltaSlack' logic that preserves seats effectively.
         if (deltaSlack >= PacedFeasible.HELPER_EPS) {

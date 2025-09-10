@@ -105,9 +105,13 @@ export function logFinalSummary(state: CurrentState): void {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 15);
 
-  console.log("src/logging/Reporter.ts:%s - Other Relative Frequencies (top 15):", fn);
-  for (const [attr, p] of others) {
-    console.log("src/logging/Reporter.ts:%s -   %s: %s", fn, attr, formatPct(p));
+  if (others.length > 0) {
+    console.log("src/logging/Reporter.ts:%s - Other Relative Frequencies (top 15):", fn);
+    for (const [attr, p] of others) {
+      console.log("src/logging/Reporter.ts:%s -   %s: %s", fn, attr, formatPct(p));
+    }
+  } else {
+    console.log("src/logging/Reporter.ts:%s - Other Relative Frequencies: (none - all attributes are constrained)", fn);
   }
 }
 

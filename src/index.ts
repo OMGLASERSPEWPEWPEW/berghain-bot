@@ -1,6 +1,7 @@
 // File: src/index.ts (relative to project root)
 import axios from "axios";
 import { ChallengeClient } from "./api/ChallengeClient";
+import { SimulatedChallengeClient } from "./simulation/SimulatedChallengeClient";
 import { config } from "./config/defaults";
 import type { DecideAndNextResponse, DecideAndNextRunning } from "./core/types";
 import { initState } from "./core/StateTracker";
@@ -16,7 +17,14 @@ async function runOnce(): Promise<number> {
   const fn = "runOnce";
   console.log("src/index.ts:%s - starting run (scenario=%d)", fn, config.SCENARIO);
 
-  const api = new ChallengeClient(config.PLAYER_ID);
+  const api = config.SIMULATION 
+  ? new SimulatedChallengeClient(config.PLAYER_ID)
+  : new ChallengeClient(config.PLAYER_ID);
+
+  console.log("src/index.ts:%s - using %s client", fn, config.SIMULATION ? "SIMULATION" : "HTTP");
+
+
+
   const newGame = await api.startNewGame(config.SCENARIO);
 
   // Print constraints + distributions.

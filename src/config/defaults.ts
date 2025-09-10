@@ -14,4 +14,5 @@ export const config = {
   PLAYER_ID: env("PLAYER_ID", "YOUR-PLAYER-ID-HERE"),
   API_BASE_URL: env("API_BASE_URL", "https://berghain.challenges.listenlabs.ai/api"),
   SCENARIO: Number(env("SCENARIO", "1")),
+  SIMULATION: env("SIMULATION", "false") === "true",
 };

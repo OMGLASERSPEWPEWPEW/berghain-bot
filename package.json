@@ -15,7 +15,10 @@
     "web": "ts-node src/web/server.ts",
     "scenario:1": "cross-env SCENARIO=1 ts-node src/index.ts",
     "scenario:2": "cross-env SCENARIO=2 ts-node src/index.ts",
-    "scenario:3": "cross-env SCENARIO=3 ts-node src/index.ts"
+    "scenario:3": "cross-env SCENARIO=3 ts-node src/index.ts",
+    "sim_scenario:1": "cross-env SCENARIO=1 SIMULATION=true ts-node src/index.ts",
+    "sim_scenario:2": "cross-env SCENARIO=2 SIMULATION=true ts-node src/index.ts",
+    "sim_scenario:3": "cross-env SCENARIO=3 SIMULATION=true ts-node src/index.ts"
   },
   "dependencies": {
     "axios": "^1.7.7",

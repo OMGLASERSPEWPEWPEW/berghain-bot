@@ -11,6 +11,7 @@ import { dashboardEvents } from './web/DashboardEvents';
 import { PacedFeasible } from "./strategy/PacedFeasible";
 import { VENUE_CAPACITY, evaluateDecisionFeasibility } from "./core/Feasibility";
 import './web/server'; // Start web server in same process
+import { PacedFeasibleWithDuals } from "./strategy/PacedFeasibleWithDuals";
 
 const MAX_REJECTIONS = 20000;
 
@@ -42,7 +43,7 @@ async function runOnce(): Promise<number> {
 
   let decisionForPrev: boolean | undefined = undefined;
   let personIndex = 0;
-  const strategy = new PacedFeasible();
+  const strategy = new PacedFeasibleWithDuals();
 
   while (true) {
     let res: DecideAndNextResponse;

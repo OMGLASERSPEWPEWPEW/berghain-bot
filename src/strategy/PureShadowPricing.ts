@@ -21,9 +21,9 @@ export class PureShadowPricing implements Strategy {
   private lastDualUpdate: number = 0;
   
   // Hyperparameters for pure shadow pricing
-  private static readonly DUAL_UPDATE_FREQUENCY = 20;    // Update λ every N people
+  private static readonly DUAL_UPDATE_FREQUENCY = 10;    // Update λ every N people
   private static readonly LEARNING_RATE = 0.15;          // η for dual updates (slightly higher)
-  private static readonly HELPER_THRESHOLD = 0.3;        // Min value for helpers
+  private static readonly HELPER_THRESHOLD = 0.0;        // Min value for helpers
   private static readonly FILLER_THRESHOLD = -0.5;       // Min value for non-helpers (more permissive)
   private static readonly SAFE_FILLER_THRESHOLD = 0.8;   // When all constraints met, be conservative
 

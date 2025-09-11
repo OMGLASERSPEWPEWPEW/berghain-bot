@@ -55,15 +55,17 @@ export class DualTracker {
    */
   updateDuals(slacks: Record<string, number>): void {
     const fn = "updateDuals";
+    const VENUE_CAPACITY = 1000;
     
     for (const [attribute, slack] of Object.entries(slacks)) {
       if (!this.duals.has(attribute)) continue;
       
       // Get current λ_c^(t)
       const currentDual = this.duals.get(attribute)!;
-      
+
+      const scaledSlack = slack / VENUE_CAPACITY;
       // Apply update rule: λ_c^(t+1) = λ_c^(t) + η * slack_c
-      const rawUpdate = currentDual + this.learningRate * slack;
+      const rawUpdate = currentDual - this.learningRate * scaledSlack;
       
       // Project to feasible region: max(minDual, min(maxDual, rawUpdate))
       const newDual = Math.max(this.minDual, Math.min(this.maxDual, rawUpdate));

@@ -34,12 +34,15 @@ async function runOnce(): Promise<number> {
   logScenarioIntro(newGame.constraints, newGame.attributeStatistics);
 
   // Emit game started event for dashboard
-  dashboardEvents.emitGameStarted({
-    scenario: config.SCENARIO,
-    constraints: newGame.constraints,
-    gameId: newGame.gameId,
-    statistics: newGame.attributeStatistics
-  });
+  // Give the web server time to establish connections
+  setTimeout(() => {
+    dashboardEvents.emitGameStarted({
+      scenario: config.SCENARIO,
+      constraints: newGame.constraints,
+      gameId: newGame.gameId,
+      statistics: newGame.attributeStatistics
+    });
+  }, 500);
 
   const state = initState(newGame.constraints, newGame.attributeStatistics);
 

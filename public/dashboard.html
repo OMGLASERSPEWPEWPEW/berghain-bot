@@ -168,6 +168,33 @@
             border-radius: 4px;
             margin-bottom: 20px;
         }
+
+        .shadow-price {
+            min-width: 100px;
+            text-align: right;
+            font-family: monospace;
+            color: #ffaa00;
+            font-weight: bold;
+        }
+
+        .constraint-progress {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex: 1;
+            justify-content: flex-end;
+        }
+
+        .constraint-name {
+            font-weight: bold;
+            min-width: 200px;
+        }
+
+        .progress-text {
+            min-width: 100px;
+            text-align: right;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -220,13 +247,13 @@
             <div>Status: <span id="feasibilityStatus">-</span></div>
         </div>
 
-        <div class="feasibility-section">
+        <!-- <div class="feasibility-section">
             <h2>Shadow Price Rankings</h2>
             <div>Most Valued Constraint: <span id="topConstraint">-</span></div>
             <div id="shadowPriceList">
-                <!-- Shadow price rankings will appear here -->
+                 Shadow price rankings will appear here 
             </div>
-        </div>
+        </div> -->
         
         <div class="decision-log">
             <h2>Recent Decisions</h2>
@@ -244,12 +271,14 @@
         socket.on('connect', () => {
             document.getElementById('connectionStatus').textContent = 'Connected';
             document.getElementById('connectionStatus').className = 'status-connected';
+            socket.emit('requestGameState');
         });
         
         socket.on('disconnect', () => {
             document.getElementById('connectionStatus').textContent = 'Disconnected';
             document.getElementById('connectionStatus').className = 'status-disconnected';
         });
+        
         
         // Game initialization
         socket.on('gameStarted', (data) => {
@@ -263,6 +292,9 @@
             if (data.constraints && data.constraints.length > 0) {
                 console.log('Calling updateConstraintsList with', data.constraints.length, 'constraints');
                 updateConstraintsList(data.constraints);
+                
+                // Store constraints globally for later use
+                window.currentConstraints = data.constraints;
             } else {
                 console.error('No constraints data received!');
             }
@@ -317,10 +349,14 @@
             const html = constraints.map(constraint => {
                 console.log('Creating constraint item for:', constraint.attribute);
                 return `
-                    <div class="constraint-item" id="constraint-${constraint.attribute}" style="padding: 10px 0; border-bottom: 1px solid #404040; font-family: monospace;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: bold;">${constraint.attribute}</span>
-                            <span id="tally-${constraint.attribute}" style="color: #00ff88;">0/${constraint.minCount}</span>
+                    <div class="constraint-item" id="constraint-${constraint.attribute}">
+                        <div class="constraint-name">${constraint.attribute}</div>
+                        <div class="constraint-progress">
+                            <span id="tally-${constraint.attribute}" class="progress-text">0/${constraint.minCount}</span>
+                            <div class="progress-bar">
+                                <div id="progress-${constraint.attribute}" class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <span id="lambda-${constraint.attribute}" class="shadow-price">λ = 0.000</span>
                         </div>
                     </div>
                 `;
@@ -344,9 +380,18 @@
             data.constraints.forEach(constraint => {
                 const current = data.admittedAttributes[constraint.attribute] || 0;
                 const tallyElement = document.getElementById(`tally-${constraint.attribute}`);
+                const progressElement = document.getElementById(`progress-${constraint.attribute}`);
                 
                 if (tallyElement) {
                     tallyElement.textContent = `${current}/${constraint.minCount}`;
+                    
+                    // Calculate percentage
+                    const percentage = (current / constraint.minCount) * 100;
+                    
+                    // Update progress bar
+                    if (progressElement) {
+                        progressElement.style.width = Math.min(100, percentage) + '%';
+                    }
                     
                     // Color coding based on progress
                     if (current >= constraint.minCount) {
@@ -385,23 +430,22 @@
         function updateShadowPrices(shadowPrices) {
             if (!shadowPrices) return;
             
-            const ranked = Object.entries(shadowPrices)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 8); // Show top 8
+            // Update shadow prices in the constraints list
+            Object.entries(shadowPrices).forEach(([attr, lambda]) => {
+                const lambdaElement = document.getElementById(`lambda-${attr}`);
+                if (lambdaElement) {
+                    lambdaElement.textContent = `λ = ${lambda.toFixed(3)}`;
+                    // Color code based on value
+                    if (lambda > 5) {
+                        lambdaElement.style.color = '#ff4444'; // Red for high values
+                    } else if (lambda > 1) {
+                        lambdaElement.style.color = '#ffaa00'; // Orange for medium
+                    } else {
+                        lambdaElement.style.color = '#00ff88'; // Green for low
+                    }
+                }
+            });
             
-            document.getElementById('topConstraint').textContent = ranked[0] ? 
-                `${ranked[0][0]} (λ=${ranked[0][1].toFixed(2)})` : 'None';
-            
-            const listHtml = ranked.map(([attr, lambda]) => 
-                `<div style="margin: 5px 0; font-family: monospace; display: flex; justify-content: space-between;">
-                    <span>${attr}</span>
-                    <span style="color: ${lambda > 1 ? '#ff4444' : lambda > 0.5 ? '#ffaa00' : '#00ff88'}">
-                        λ = ${lambda.toFixed(3)}
-                    </span>
-                </div>`
-            ).join('');
-            
-            document.getElementById('shadowPriceList').innerHTML = listHtml;
         }
     </script>
 </body>

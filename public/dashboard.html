@@ -219,6 +219,14 @@
             <div>Min Slack: <span id="minSlack">-</span></div>
             <div>Status: <span id="feasibilityStatus">-</span></div>
         </div>
+
+        <div class="feasibility-section">
+            <h2>Shadow Price Rankings</h2>
+            <div>Most Valued Constraint: <span id="topConstraint">-</span></div>
+            <div id="shadowPriceList">
+                <!-- Shadow price rankings will appear here -->
+            </div>
+        </div>
         
         <div class="decision-log">
             <h2>Recent Decisions</h2>
@@ -245,9 +253,19 @@
         
         // Game initialization
         socket.on('gameStarted', (data) => {
-            console.log('Game started:', data);
+            console.log('Game started event received:', data);
+            console.log('Constraints data:', data.constraints);
+            
             document.getElementById('scenarioNumber').textContent = data.scenario;
             document.getElementById('scenarioInfo').style.display = 'block';
+            
+            // Initialize constraint progress bars FIRST
+            if (data.constraints && data.constraints.length > 0) {
+                console.log('Calling updateConstraintsList with', data.constraints.length, 'constraints');
+                updateConstraintsList(data.constraints);
+            } else {
+                console.error('No constraints data received!');
+            }
             
             // Display relative frequencies for constrained attributes
             if (data.statistics && data.statistics.relativeFrequencies) {
@@ -258,9 +276,6 @@
                 }).join('');
                 document.getElementById('relativeFrequencies').innerHTML = frequenciesHtml;
             }
-            
-            // Initialize constraint progress bars
-            updateConstraintsList(data.constraints);
         });
         
         // State updates
@@ -273,6 +288,10 @@
         // Decision updates
         socket.on('decision', (data) => {
             logDecision(data);
+        });
+
+        socket.on('shadowPrices', (data) => {
+            updateShadowPrices(data.shadowPrices);
         });
         
         function updateStats(data) {
@@ -288,16 +307,35 @@
         }
         
         function updateConstraintsList(constraints) {
-            const html = constraints.map(constraint => `
-                <div class="constraint-item" id="constraint-${constraint.attribute}" style="padding: 10px 0; border-bottom: 1px solid #404040; font-family: monospace;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: bold;">${constraint.attribute}</span>
-                        <span id="tally-${constraint.attribute}" style="color: #00ff88;">0/${constraint.minCount}</span>
-                    </div>
-                </div>
-            `).join('');
+            console.log('updateConstraintsList called with:', constraints);
             
-            document.getElementById('constraintsList').innerHTML = html;
+            if (!constraints || constraints.length === 0) {
+                console.error('No constraints provided to updateConstraintsList');
+                return;
+            }
+            
+            const html = constraints.map(constraint => {
+                console.log('Creating constraint item for:', constraint.attribute);
+                return `
+                    <div class="constraint-item" id="constraint-${constraint.attribute}" style="padding: 10px 0; border-bottom: 1px solid #404040; font-family: monospace;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: bold;">${constraint.attribute}</span>
+                            <span id="tally-${constraint.attribute}" style="color: #00ff88;">0/${constraint.minCount}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            console.log('Generated HTML:', html);
+            
+            const constraintsList = document.getElementById('constraintsList');
+            if (!constraintsList) {
+                console.error('constraintsList element not found!');
+                return;
+            }
+            
+            constraintsList.innerHTML = html;
+            console.log('Updated constraintsList innerHTML');
         }
         
         function updateConstraints(data) {
@@ -342,6 +380,28 @@
             while (log.children.length > 50) {
                 log.removeChild(log.lastChild);
             }
+        }
+
+        function updateShadowPrices(shadowPrices) {
+            if (!shadowPrices) return;
+            
+            const ranked = Object.entries(shadowPrices)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 8); // Show top 8
+            
+            document.getElementById('topConstraint').textContent = ranked[0] ? 
+                `${ranked[0][0]} (λ=${ranked[0][1].toFixed(2)})` : 'None';
+            
+            const listHtml = ranked.map(([attr, lambda]) => 
+                `<div style="margin: 5px 0; font-family: monospace; display: flex; justify-content: space-between;">
+                    <span>${attr}</span>
+                    <span style="color: ${lambda > 1 ? '#ff4444' : lambda > 0.5 ? '#ffaa00' : '#00ff88'}">
+                        λ = ${lambda.toFixed(3)}
+                    </span>
+                </div>`
+            ).join('');
+            
+            document.getElementById('shadowPriceList').innerHTML = listHtml;
         }
     </script>
 </body>

@@ -12,6 +12,7 @@ import { PacedFeasible } from "./strategy/PacedFeasible";
 import { VENUE_CAPACITY, evaluateDecisionFeasibility } from "./core/Feasibility";
 import './web/server'; // Start web server in same process
 import { PacedFeasibleWithDuals } from "./strategy/PacedFeasibleWithDuals";
+import { PureShadowPricing } from "./strategy/PureShadowPricing";
 
 const MAX_REJECTIONS = 20000;
 
@@ -36,14 +37,15 @@ async function runOnce(): Promise<number> {
   dashboardEvents.emitGameStarted({
     scenario: config.SCENARIO,
     constraints: newGame.constraints,
-    gameId: newGame.gameId
+    gameId: newGame.gameId,
+    statistics: newGame.attributeStatistics
   });
 
   const state = initState(newGame.constraints, newGame.attributeStatistics);
 
   let decisionForPrev: boolean | undefined = undefined;
   let personIndex = 0;
-  const strategy = new PacedFeasibleWithDuals();
+  const strategy = new PureShadowPricing();
 
   while (true) {
     let res: DecideAndNextResponse;

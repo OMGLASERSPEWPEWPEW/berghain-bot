@@ -1,12 +1,14 @@
 // File: src/web/DashboardEvents.ts (relative to project root)
 import { EventEmitter } from 'events';
-import type { CurrentState, Person, Constraint } from '../core/types';
+import type { CurrentState, Person, Constraint, AttributeStatistics } from '../core/types';
 import type { FeasibilityResult } from '../core/Feasibility';
+
 
 export interface GameStartedEvent {
   scenario: number;
   constraints: Constraint[];
   gameId: string;
+  statistics: AttributeStatistics;
 }
 
 export interface StateUpdateEvent extends CurrentState {

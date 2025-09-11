@@ -1,5 +1,6 @@
 // File: src/strategy/DualTracker.ts (relative to project root)
 import type { Constraint } from "../core/types";
+import { dashboardEvents } from '../web/DashboardEvents';
 
 /**
  * Tracks shadow prices (dual variables) λ_c for each constraint c.
@@ -72,6 +73,11 @@ export class DualTracker {
       console.log("src/strategy/DualTracker.ts:%s - λ_%s: %f + %f*%f = %f → %f", 
         fn, attribute, currentDual, this.learningRate, slack, rawUpdate, newDual);
     }
+
+    const currentDuals = this.getAllDuals();
+    dashboardEvents.emit('shadowPrices', { shadowPrices: currentDuals });
+    
+    console.log("src/strategy/DualTracker.ts:%s - emitted shadow prices to dashboard", fn);
   }
 
   /**

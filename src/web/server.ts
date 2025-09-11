@@ -58,6 +58,11 @@ dashboardEvents.onGameCompleted((data) => {
   io.emit('gameCompleted', data);
 });
 
+dashboardEvents.on('shadowPrices', (data) => {
+  console.log("src/web/server.ts:dashboardEvents.on('shadowPrices') - forwarding to clients");
+  io.emit('shadowPrices', data);
+});
+
 // Export io for use by bot
 export { io };
 

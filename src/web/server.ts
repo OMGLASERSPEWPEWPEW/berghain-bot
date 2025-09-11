@@ -32,6 +32,18 @@ io.on('connection', (socket) => {
   const fn = "connection";
   console.log("src/web/server.ts:%s - client connected: %s", fn, socket.id);
   
+  // Send current game state if available
+  socket.on('requestGameState', () => {
+    console.log("src/web/server.ts:requestGameState - client requesting current state");
+    const lastGame = dashboardEvents.getLastGameStarted();
+    if (lastGame) {
+      console.log("src/web/server.ts:requestGameState - sending stored game state to client");
+      socket.emit('gameStarted', lastGame);
+    } else {
+      console.log("src/web/server.ts:requestGameState - no stored game state available");
+    }
+  });
+  
   socket.on('disconnect', () => {
     console.log("src/web/server.ts:%s - client disconnected: %s", fn, socket.id);
   });

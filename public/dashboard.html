@@ -271,6 +271,7 @@
         socket.on('connect', () => {
             document.getElementById('connectionStatus').textContent = 'Connected';
             document.getElementById('connectionStatus').className = 'status-connected';
+            console.log('Dashboard connected, requesting game state...');
             socket.emit('requestGameState');
         });
         
@@ -372,6 +373,7 @@
             
             constraintsList.innerHTML = html;
             console.log('Updated constraintsList innerHTML');
+            console.log('constraintsList now has', constraintsList.children.length, 'children');
         }
         
         function updateConstraints(data) {

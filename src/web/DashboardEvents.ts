@@ -40,6 +40,8 @@ class DashboardEventEmitter extends EventEmitter {
     this.setMaxListeners(20); // Allow multiple listeners
   }
 
+  private lastGameStarted: GameStartedEvent | null = null;
+
   public static getInstance(): DashboardEventEmitter {
     if (!DashboardEventEmitter.instance) {
       DashboardEventEmitter.instance = new DashboardEventEmitter();
@@ -51,7 +53,12 @@ class DashboardEventEmitter extends EventEmitter {
   emitGameStarted(data: GameStartedEvent): void {
     const fn = "emitGameStarted";
     console.log("src/web/DashboardEvents.ts:%s - emitting game started for scenario %d", fn, data.scenario);
+    this.lastGameStarted = data; 
     this.emit('gameStarted', data);
+  }
+
+  getLastGameStarted(): GameStartedEvent | null {
+    return this.lastGameStarted;
   }
 
   emitStateUpdate(data: StateUpdateEvent): void {

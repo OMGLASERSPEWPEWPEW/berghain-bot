@@ -24,8 +24,8 @@ import { VENUE_CAPACITY } from "../core/Feasibility";
  */
 function computeSeatCostRisk(
   state: CurrentState, 
-  costMultiplier: number = 2.0,  // α in the formula
-  scarcityExponent: number = 2.0  // β in the formula
+  costMultiplier: number = 3.0,  // α in the formula
+  scarcityExponent: number = 3.0  // β in the formula
 ): number {
   const remainingSeats = VENUE_CAPACITY - state.admittedCount;
   const seatUtilization = 1.0 - (remainingSeats / VENUE_CAPACITY);

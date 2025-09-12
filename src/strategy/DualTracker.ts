@@ -1,5 +1,5 @@
 // File: src/strategy/DualTracker.ts (relative to project root)
-import type { Constraint } from "../core/types";
+import type { Constraint, AttributeStatistics } from "../core/types";
 import { dashboardEvents } from '../web/DashboardEvents';
 
 /**
@@ -23,29 +23,48 @@ export class DualTracker {
   private readonly minDual: number = 0.0;
   
   // Maximum λ value (prevents explosion) 
-  private readonly maxDual: number = 10.0;
+  private readonly maxDual: number = 20.0;
 
   constructor(learningRate: number = 0.1) {
     this.learningRate = learningRate; // η in the math
     console.log("src/strategy/DualTracker.ts:constructor - initialized with η=%f", learningRate);
   }
 
-  /**
-   * Initialize λ_c = 0 for all constraints c
-   * Mathematical: λ_c^(0) = 0 ∀c
-   */
-  initDuals(constraints: Constraint[]): void {
-    const fn = "initDuals";
-    this.duals.clear();
+/**
+ * Initialize λ_c based on attribute rarity (inverse frequency)
+ * Mathematical: λ_c^(0) = k / frequency_c (rare → high price, common → low price)
+ */
+initDuals(constraints: Constraint[], statistics: AttributeStatistics): void {
+  const fn = "initDuals";
+  this.duals.clear();
+  
+  // Calculate inverse frequencies for normalization
+  const inverseFreqs = constraints.map(c => {
+    const freq = statistics.relativeFrequencies[c.attribute] ?? 0.1;
+    return { attribute: c.attribute, inverseFreq: 1.0 / Math.max(freq, 0.01) };
+  });
+  
+  // Find min/max for normalization to range [0.5, 5.0]
+  const minInverse = Math.min(...inverseFreqs.map(x => x.inverseFreq));
+  const maxInverse = Math.max(...inverseFreqs.map(x => x.inverseFreq));
+  const range = maxInverse - minInverse;
+  
+  for (const constraint of constraints) {
+    const freq = statistics.relativeFrequencies[constraint.attribute] ?? 0.1;
+    const inverseFreq = 1.0 / Math.max(freq, 0.01);
     
-    for (const constraint of constraints) {
-      // λ_c^(0) = 0 (start with zero shadow prices)
-      this.duals.set(constraint.attribute, 0.0);
-      console.log("src/strategy/DualTracker.ts:%s - initialized λ_%s = 0", fn, constraint.attribute);
-    }
+    // Normalize to [0.5, 5.0] range: rare gets ~5.0, common gets ~0.5
+    const normalizedLambda = range > 0 
+      ? 0.5 + 4.5 * ((inverseFreq - minInverse) / range)
+      : 2.5; // fallback to middle value
     
-    console.log("src/strategy/DualTracker.ts:%s - initialized %d dual variables", fn, constraints.length);
+    this.duals.set(constraint.attribute, normalizedLambda);
+    console.log("src/strategy/DualTracker.ts:%s - initialized λ_%s = %f (freq=%s)", 
+      fn, constraint.attribute, normalizedLambda, (freq * 100).toFixed(1) + '%');
   }
+  
+  console.log("src/strategy/DualTracker.ts:%s - initialized %d frequency-based dual variables", fn, constraints.length);
+}
 
   /**
    * Update shadow prices using subgradient method

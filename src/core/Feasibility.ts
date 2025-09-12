@@ -105,6 +105,68 @@ export function evaluateDecisionFeasibility(
   return { feasible, seatsRemaining: Math.max(0, seats), perAttr, minSlack, minSlackAttr };
 }
 
+
+export function evaluateDecisionFeasibilityByLine(
+  state: CurrentState,
+  stats: AttributeStatistics,
+  person: Person | null,
+  acceptSeat: boolean
+): FeasibilityResult {
+  const totalPeople = 20000; // Total people in line
+  const peopleSeen = state.admittedCount + state.rejectedCount;
+  const remainingPeopleInLine = totalPeople - peopleSeen;
+  
+  const pmap = stats.relativeFrequencies;
+  const perAttr: Record<string, FeasibilityPerAttr> = {};
+
+  // Apply hypothetical: if accepting, person may reduce some needs
+  const deficits = computeDeficits(state);
+  if (acceptSeat && person) {
+    for (const [attr, hasIt] of Object.entries(person.attributes)) {
+      if (hasIt && deficits[attr] !== undefined) {
+        deficits[attr] = Math.max(0, deficits[attr] - 1);
+      }
+    }
+  }
+
+  let feasible = true;
+  let minSlack = Number.POSITIVE_INFINITY;
+  let minSlackAttr: string | null = null;
+
+  for (const [attr, need] of Object.entries(deficits)) {
+    const p = clamp01(pmap[attr] ?? 0);
+    // Expected people of this type still coming
+    const expected = p * Math.max(0, remainingPeopleInLine);
+    const var_ = p * (1 - p) * Math.max(0, remainingPeopleInLine);
+    const sd = Math.sqrt(var_);
+    const slack = expected - SAFETY_Z * sd - need;
+    const ok = slack >= 0;
+
+    perAttr[attr] = { need, expected, sd, slack, feasible: ok };
+    if (!ok) feasible = false;
+
+    if (need > 0 && slack < minSlack) {
+      minSlack = slack;
+      minSlackAttr = attr;
+    }
+  }
+
+  if (!isFinite(minSlack)) {
+    minSlack = 0;
+    minSlackAttr = null;
+  }
+
+  const remainingSeatsForCompatibility = VENUE_CAPACITY - state.admittedCount;
+  return { 
+    feasible, 
+    seatsRemaining: Math.max(0, remainingSeatsForCompatibility), 
+    perAttr, 
+    minSlack, 
+    minSlackAttr 
+  };
+}
+
+
 function clamp01(x: number): number {
   if (Number.isNaN(x)) return 0;
   if (x < 0) return 0;

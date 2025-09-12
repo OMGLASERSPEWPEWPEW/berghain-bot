@@ -4,7 +4,7 @@ import type { Strategy } from "./Strategy";
 import { DualTracker } from "./DualTracker";
 import { calculateAllSlacks } from "./SlackCalculator";
 import { scorePerson } from "./PersonScorer";
-import { computeDeficits, allMinimaMet } from "../core/Feasibility";
+import { computeDeficits, allMinimaMet, evaluateDecisionFeasibility, evaluateDecisionFeasibilityByLine, FILLER_MIN_SLACK } from "../core/Feasibility";
 
 
 /**
@@ -21,78 +21,118 @@ export class PureShadowPricing implements Strategy {
   private lastDualUpdate: number = 0;
   
   // Hyperparameters for pure shadow pricing
-  private static readonly DUAL_UPDATE_FREQUENCY = 10;    // Update λ every N people
-  private static readonly LEARNING_RATE = 0.15;          // η for dual updates (slightly higher)
-  private static readonly HELPER_THRESHOLD = 0.0;        // Min value for helpers
-  private static readonly FILLER_THRESHOLD = -0.5;       // Min value for non-helpers (more permissive)
-  private static readonly SAFE_FILLER_THRESHOLD = 0.8;   // When all constraints met, be conservative
+  private static readonly DUAL_UPDATE_FREQUENCY = 5;    // Update λ every N people
+  private static readonly LEARNING_RATE = 0.3;          // η for dual updates (slightly higher)
+  private static readonly HELPER_THRESHOLD = 5.0;        // Min value for helpers
+  private static readonly FILLER_THRESHOLD = -2.0;       // Min value for non-helpers (more permissive)
+  private static readonly SAFE_FILLER_THRESHOLD = 2.0;   // When all constraints met, be conservative
 
   constructor() {
     this.dualTracker = new DualTracker(PureShadowPricing.LEARNING_RATE);
     console.log("src/strategy/PureShadowPricing.ts:constructor - initialized pure shadow pricing strategy");
   }
 
-  shouldAdmitPerson(state: CurrentState, next: Person): boolean {
-    const fn = "shouldAdmitPerson";
-    
-    // Initialize duals on first call
-    if (!this.isInitialized) {
-      this.dualTracker.initDuals(state.constraints);  // λ_c^(0) = 0 ∀c
-      this.isInitialized = true;
-      console.log("src/strategy/PureShadowPricing.ts:%s - initialized duals for %d constraints", 
-        fn, state.constraints.length);
-    }
-    
-    // Update dual variables periodically
-    const peopleProcessed = state.admittedCount + state.rejectedCount;
-    if (peopleProcessed - this.lastDualUpdate >= PureShadowPricing.DUAL_UPDATE_FREQUENCY) {
-      this.updateDualVariables(state);
-      this.lastDualUpdate = peopleProcessed;
-    }
-    
-    // Score person using shadow prices: value(p) = Σλ_c - seat_cost_risk
-    const score = scorePerson(next, this.dualTracker, state);
-    
-    // Check if person helps any unmet constraint
-    const deficits = computeDeficits(state);
-    const helpsUnmetConstraint = this.helpsUnmetConstraints(next, deficits);
-    
-    // Special case: if all constraints are satisfied, be more conservative
-    if (allMinimaMet(deficits)) {
-      const accept = score.totalValue >= PureShadowPricing.SAFE_FILLER_THRESHOLD;
-      console.log("src/strategy/PureShadowPricing.ts:%s - %s safe filler (all constraints met, score=%f≥%f)", 
-        fn, accept ? "ACCEPT" : "REJECT", score.totalValue, PureShadowPricing.SAFE_FILLER_THRESHOLD);
-      return accept;
-    }
-    
-    // Pure shadow pricing decision
-    let threshold: number;
-    let personType: string;
-    
-    if (helpsUnmetConstraint) {
-      threshold = PureShadowPricing.HELPER_THRESHOLD;
-      personType = "helper";
-    } else {
-      threshold = PureShadowPricing.FILLER_THRESHOLD;
-      personType = "filler";
-    }
-    
-    const accept = score.totalValue >= threshold;
-    
-    console.log("src/strategy/PureShadowPricing.ts:%s - %s %s (score=%f %s %f, Σλ=%f, cost=%f, helps: %s)", 
-      fn, 
-      accept ? "ACCEPT" : "REJECT",
-      personType,
-      score.totalValue,
-      accept ? "≥" : "<",
-      threshold,
-      score.shadowPriceSum,
-      score.seatCost,
-      score.helpedAttributes.join(',') || 'none'
+  // File: src/strategy/PureShadowPricing.ts (relative to project root)
+shouldAdmitPerson(state: CurrentState, next: Person): boolean {
+  const fn = "shouldAdmitPerson";
+
+  // Initialize duals on first call
+  if (!this.isInitialized) {
+    this.dualTracker.initDuals(state.constraints, state.statistics);  // λ_c^(0) = 0 ∀c
+    this.isInitialized = true;
+    console.log("src/strategy/PureShadowPricing.ts:%s - initialized duals for %d constraints", fn, state.constraints.length);
+  }
+
+  // Periodic dual updates (unchanged)
+  const peopleProcessed = state.admittedCount + state.rejectedCount;
+  if (peopleProcessed - this.lastDualUpdate >= PureShadowPricing.DUAL_UPDATE_FREQUENCY) {
+    this.updateDualVariables(state);
+    this.lastDualUpdate = peopleProcessed;
+  }
+
+  // ===== NEW: compare feasibility of REJECT vs ACCEPT hypotheticals =====
+  const evalReject = evaluateDecisionFeasibilityByLine(state, state.statistics, null, false /* reject -> do not consume seat */);
+  const evalAccept = evaluateDecisionFeasibilityByLine(state, state.statistics, next,  true  /* accept -> consume seat & apply person */);
+  const deltaSlack = evalAccept.minSlack - evalReject.minSlack;
+  const bottleA = evalAccept.minSlackAttr ?? "n/a";
+  const bottleR = evalReject.minSlackAttr ?? "n/a";
+
+  // Hard guard #1: accepting would break feasibility -> reject outright.
+  if (evalReject.feasible && !evalAccept.feasible) {
+    console.log(
+      "src/strategy/PureShadowPricing.ts:%s - REJECT (accept would break feasibility; reject bottleneck=%s slack=%.2f, accept bottleneck=%s slack=%.2f, Δslack=%.2f)",
+      fn, bottleR, evalReject.minSlack, bottleA, evalAccept.minSlack, deltaSlack
     );
-    
+    return false;
+  }
+
+  // Hard guard #2: accepting restores feasibility while rejecting does not -> accept.
+  if (!evalReject.feasible && evalAccept.feasible) {
+    console.log(
+      "src/strategy/PureShadowPricing.ts:%s - ACCEPT (accept restores feasibility; accept bottleneck=%s slack=%.2f, reject bottleneck=%s slack=%.2f, Δslack=%.2f)",
+      fn, bottleA, evalAccept.minSlack, bottleR, evalReject.minSlack, deltaSlack
+    );
+    return true;
+  }
+
+  // Score via shadow prices: value(p) = Σλ_c - seat_cost_risk
+  const score = scorePerson(next, this.dualTracker, state);
+
+  // Helper detection against *current* unmet constraints
+  const deficits = computeDeficits(state);
+  const helpsUnmetConstraint = this.helpsUnmetConstraints(next, deficits);
+
+  // If all minima are already satisfied, be conservative with filler
+  if (allMinimaMet(deficits)) {
+    const accept = score.totalValue >= PureShadowPricing.SAFE_FILLER_THRESHOLD;
+    console.log(
+      "src/strategy/PureShadowPricing.ts:%s - %s safe filler (all constraints met; score=%.3f %s %.3f; Δslack=%.2f A:%s/%.2f R:%s/%.2f)",
+      fn, accept ? "ACCEPT" : "REJECT",
+      score.totalValue, accept ? "≥" : "<", PureShadowPricing.SAFE_FILLER_THRESHOLD,
+      deltaSlack, bottleA, evalAccept.minSlack, bottleR, evalReject.minSlack
+    );
     return accept;
   }
+
+  // ===== NEW: helper-only mode when bottleneck slack is tight =====
+  // When the REJECT-hypothetical bottleneck slack is below our global filler safety margin,
+  // do NOT allow a filler—only accept if this person helps an unmet constraint.
+  if (evalReject.minSlack < FILLER_MIN_SLACK && !helpsUnmetConstraint) {
+    console.log(
+      "src/strategy/PureShadowPricing.ts:%s - REJECT filler (tight bottleneck=%s slack=%.2f < threshold=%.2f; Δslack=%.2f)",
+      fn, bottleR, evalReject.minSlack, FILLER_MIN_SLACK, deltaSlack
+    );
+    return false;
+  }
+
+  // Shadow-pricing decision thresholds (existing behavior)
+  let threshold: number;
+  let personType: string;
+
+  if (helpsUnmetConstraint) {
+    threshold = PureShadowPricing.HELPER_THRESHOLD;
+    personType = "helper";
+  } else {
+    threshold = PureShadowPricing.FILLER_THRESHOLD;
+    personType = "filler";
+  }
+
+  const accept = score.totalValue >= threshold;
+
+  console.log(
+    "src/strategy/PureShadowPricing.ts:%s - %s %s (score=%.3f %s %.3f, Σλ=%.3f, cost=%.3f, helps:%s; Δslack=%.2f A:%s/%.2f R:%s/%.2f)",
+    fn,
+    accept ? "ACCEPT" : "REJECT",
+    personType,
+    score.totalValue, accept ? "≥" : "<", threshold,
+    score.shadowPriceSum, score.seatCost,
+    score.helpedAttributes.join(",") || "none",
+    deltaSlack, bottleA, evalAccept.minSlack, bottleR, evalReject.minSlack
+  );
+
+  return accept;
+}
+
   
   /**
    * Check if person helps any constraint that still has unmet demand

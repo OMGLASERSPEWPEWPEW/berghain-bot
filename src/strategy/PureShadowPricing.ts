@@ -1,6 +1,6 @@
 // File: src/strategy/PureShadowPricing.ts (relative to project root)
 import type { CurrentState, Person } from "../core/types";
-import type { Strategy } from "./Strategy";
+import type { Strategy, StrategyDecision } from "./Strategy";
 import { DualTracker } from "./DualTracker";
 import { calculateAllSlacks } from "./SlackCalculator";
 import { scorePerson } from "./PersonScorer";
@@ -33,7 +33,7 @@ export class PureShadowPricing implements Strategy {
   }
 
   // File: src/strategy/PureShadowPricing.ts (relative to project root)
-shouldAdmitPerson(state: CurrentState, next: Person): boolean {
+shouldAdmitPerson(state: CurrentState, next: Person): StrategyDecision {
   const fn = "shouldAdmitPerson";
 
   // Initialize duals on first call
@@ -63,7 +63,7 @@ shouldAdmitPerson(state: CurrentState, next: Person): boolean {
       "src/strategy/PureShadowPricing.ts:%s - REJECT (accept would break feasibility; reject bottleneck=%s slack=%.2f, accept bottleneck=%s slack=%.2f, Δslack=%.2f)",
       fn, bottleR, evalReject.minSlack, bottleA, evalAccept.minSlack, deltaSlack
     );
-    return false;
+    return { accept: false };
   }
 
   // Hard guard #2: accepting restores feasibility while rejecting does not -> accept.
@@ -72,7 +72,7 @@ shouldAdmitPerson(state: CurrentState, next: Person): boolean {
       "src/strategy/PureShadowPricing.ts:%s - ACCEPT (accept restores feasibility; accept bottleneck=%s slack=%.2f, reject bottleneck=%s slack=%.2f, Δslack=%.2f)",
       fn, bottleA, evalAccept.minSlack, bottleR, evalReject.minSlack, deltaSlack
     );
-    return true;
+    return { accept: true };
   }
 
   // Score via shadow prices: value(p) = Σλ_c - seat_cost_risk
@@ -85,13 +85,23 @@ shouldAdmitPerson(state: CurrentState, next: Person): boolean {
   // If all minima are already satisfied, be conservative with filler
   if (allMinimaMet(deficits)) {
     const accept = score.totalValue >= PureShadowPricing.SAFE_FILLER_THRESHOLD;
+
     console.log(
       "src/strategy/PureShadowPricing.ts:%s - %s safe filler (all constraints met; score=%.3f %s %.3f; Δslack=%.2f A:%s/%.2f R:%s/%.2f)",
       fn, accept ? "ACCEPT" : "REJECT",
       score.totalValue, accept ? "≥" : "<", PureShadowPricing.SAFE_FILLER_THRESHOLD,
       deltaSlack, bottleA, evalAccept.minSlack, bottleR, evalReject.minSlack
     );
-    return accept;
+
+    return {
+      accept,
+      scoring: {
+        shadowPriceSum: score.shadowPriceSum,
+        seatCost: score.seatCost,
+        totalValue: score.totalValue,
+        helpedAttributes: score.helpedAttributes
+      }
+    };
   }
 
   // ===== NEW: helper-only mode when bottleneck slack is tight =====
@@ -102,7 +112,7 @@ shouldAdmitPerson(state: CurrentState, next: Person): boolean {
       "src/strategy/PureShadowPricing.ts:%s - REJECT filler (tight bottleneck=%s slack=%.2f < threshold=%.2f; Δslack=%.2f)",
       fn, bottleR, evalReject.minSlack, FILLER_MIN_SLACK, deltaSlack
     );
-    return false;
+    return { accept: false };
   }
 
   // Shadow-pricing decision thresholds (existing behavior)
@@ -130,7 +140,15 @@ shouldAdmitPerson(state: CurrentState, next: Person): boolean {
     deltaSlack, bottleA, evalAccept.minSlack, bottleR, evalReject.minSlack
   );
 
-  return accept;
+  return {
+    accept,
+    scoring: {
+      shadowPriceSum: score.shadowPriceSum,
+      seatCost: score.seatCost,
+      totalValue: score.totalValue,
+      helpedAttributes: score.helpedAttributes
+    }
+  };
 }
 
   

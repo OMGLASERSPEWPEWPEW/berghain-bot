@@ -324,7 +324,7 @@
         });
 
         socket.on('shadowPrices', (data) => {
-            updateShadowPrices(data.shadowPrices);
+            updateShadowPrices(data);
         });
         
         function updateStats(data) {
@@ -358,6 +358,7 @@
                                 <div id="progress-${constraint.attribute}" class="progress-fill" style="width: 0%"></div>
                             </div>
                             <span id="lambda-${constraint.attribute}" class="shadow-price">λ = 0.000</span>
+                            <span id="slack-${constraint.attribute}" class="slack-value" style="margin-left: 10px; color: #cccccc; font-size: 0.9em;">slack = 0.000</span>
                         </div>
                     </div>
                 `;
@@ -419,8 +420,20 @@
             const log = document.getElementById('decisionLog');
             const decision = document.createElement('div');
             decision.className = `decision-item ${data.accept ? 'accept' : 'reject'}`;
-            decision.textContent = `${++decisionCount}: ${data.accept ? 'ACCEPT' : 'REJECT'} - ${data.reason}`;
             
+            let decisionText = `${data.personIndex}: `;
+            
+            if (data.scoring && data.scoring.helpedAttributes) {
+                const constraints = data.scoring.helpedAttributes.length > 0 
+                    ? `(${data.scoring.helpedAttributes.join(', ')})` 
+                    : '(none)';
+                
+                decisionText += `${constraints} Σλ: ${data.scoring.shadowPriceSum.toFixed(3)}, cost: ${data.scoring.seatCost.toFixed(3)}, value: ${data.scoring.totalValue.toFixed(3)}`;
+            } else {
+                decisionText += `${data.accept ? 'ACCEPT' : 'REJECT'} - ${data.reason}`;
+            }
+            
+            decision.textContent = decisionText;
             log.insertBefore(decision, log.firstChild);
             
             // Keep only last 50 decisions
@@ -429,12 +442,17 @@
             }
         }
 
-        function updateShadowPrices(shadowPrices) {
-            if (!shadowPrices) return;
+        function updateShadowPrices(data) {
+            if (!data || !data.shadowPrices) return;
             
-            // Update shadow prices in the constraints list
+            const shadowPrices = data.shadowPrices;
+            const slacks = data.slacks || {};
+            
+            // Update shadow prices and slacks in the constraints list
             Object.entries(shadowPrices).forEach(([attr, lambda]) => {
                 const lambdaElement = document.getElementById(`lambda-${attr}`);
+                const slackElement = document.getElementById(`slack-${attr}`);
+                
                 if (lambdaElement) {
                     lambdaElement.textContent = `λ = ${lambda.toFixed(3)}`;
                     // Color code based on value
@@ -446,8 +464,20 @@
                         lambdaElement.style.color = '#00ff88'; // Green for low
                     }
                 }
+                
+                if (slackElement && slacks[attr] !== undefined) {
+                    const slackValue = slacks[attr];
+                    slackElement.textContent = `slack = ${slackValue.toFixed(1)}`;
+                    // Color code slack: negative = red (behind), positive = green (ahead)
+                    if (slackValue < -50) {
+                        slackElement.style.color = '#ff4444'; // Red for very behind
+                    } else if (slackValue < 0) {
+                        slackElement.style.color = '#ffaa00'; // Orange for behind
+                    } else {
+                        slackElement.style.color = '#00ff88'; // Green for ahead
+                    }
+                }
             });
-            
         }
     </script>
 </body>

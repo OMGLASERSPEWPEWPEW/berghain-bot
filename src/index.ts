@@ -42,7 +42,7 @@ async function runOnce(): Promise<number> {
       gameId: newGame.gameId,
       statistics: newGame.attributeStatistics
     });
-  }, 500);
+  }, 1500);
 
   const state = initState(newGame.constraints, newGame.attributeStatistics);
 
@@ -137,7 +137,8 @@ async function runOnce(): Promise<number> {
     const nextPerson = running.nextPerson;
 
     // Decide for this person; server applies it on the next request.
-    const accept = strategy.shouldAdmitPerson(state, nextPerson);
+    const decision = strategy.shouldAdmitPerson(state, nextPerson);
+    const accept = decision.accept
 
     // Emit decision event for dashboard
     dashboardEvents.emitDecision({
@@ -145,7 +146,8 @@ async function runOnce(): Promise<number> {
       person: nextPerson,
       accept,
       reason: accept ? "Strategy approved" : "Strategy rejected",
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      scoring: decision.scoring
     });
 
     // Emit state update with feasibility analysis

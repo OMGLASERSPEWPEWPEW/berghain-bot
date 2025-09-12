@@ -96,7 +96,9 @@ initDuals(constraints: Constraint[], statistics: AttributeStatistics): void {
     }
 
     const currentDuals = this.getAllDuals();
-    dashboardEvents.emit('shadowPrices', { shadowPrices: currentDuals });
+    dashboardEvents.emit('shadowPrices', {
+      shadowPrices: currentDuals,
+      slacks: slacks });
     
     console.log("src/strategy/DualTracker.ts:%s - emitted shadow prices to dashboard", fn);
   }

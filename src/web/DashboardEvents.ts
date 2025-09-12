@@ -21,6 +21,12 @@ export interface DecisionEvent {
   accept: boolean;
   reason: string;
   timestamp: number;
+  scoring?: {
+    shadowPriceSum: number;
+    seatCost: number;
+    totalValue: number;
+    helpedAttributes: string[];
+  };
 }
 
 export interface GameCompletedEvent {

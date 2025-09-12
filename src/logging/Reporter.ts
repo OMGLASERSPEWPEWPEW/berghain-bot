@@ -33,14 +33,11 @@ export function logScenarioIntro(constraints: Constraint[], stats: AttributeStat
     }
   }
   pairs.sort((x, y) => Math.abs(y.r) - Math.abs(x.r));
-  const top = pairs.slice(0, 10);
-  console.log("src/logging/Reporter.ts:%s - Strongest correlations (top 10 by |r|):", fn);
-  for (const p of top) {
+  console.log("src/logging/Reporter.ts:%s - All correlations (sorted by |r|):", fn);
+  for (const p of pairs) {
     console.log("src/logging/Reporter.ts:%s -   %s × %s: r=%s", fn, p.a, p.b, p.r.toFixed(3));
   }
-  if (pairs.length > 10) {
-    console.log("src/logging/Reporter.ts:%s -   (+%d more)", fn, pairs.length - 10);
-  }
+  console.log("src/logging/Reporter.ts:%s - Total correlations: %d", fn, pairs.length);
 }
 
 /** Final recap: headline counts, constraint status, AND the scenario's base probabilities again. */

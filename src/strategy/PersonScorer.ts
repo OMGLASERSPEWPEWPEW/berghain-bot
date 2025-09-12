@@ -62,9 +62,12 @@ export function scorePerson(
     if (hasAttribute) {  // Person helps this constraint
       const lambda_c = dualTracker.getDualValue(attribute);  // λ_c
       
-      if (lambda_c > 0) {  // Only count constraints we're tracking
+      // Always show attributes the person has (for display)
+      helpedAttributes.push(attribute);
+      
+      // Only count shadow price if λ > 0 (for value calculation)
+      if (lambda_c > 0) {
         shadowPriceSum += lambda_c;  // Add λ_c to sum
-        helpedAttributes.push(attribute);
         
         console.log("src/strategy/PersonScorer.ts:%s - person helps %s: λ=%f", 
           fn, attribute, lambda_c);

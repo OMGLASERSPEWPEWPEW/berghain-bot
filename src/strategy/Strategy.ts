@@ -2,5 +2,15 @@
 import type { CurrentState, Person } from "../core/types";
 
 export interface Strategy {
-  shouldAdmitPerson(state: CurrentState, next: Person): boolean;
+  shouldAdmitPerson(state: CurrentState, next: Person): StrategyDecision;
+}
+
+export interface StrategyDecision {
+  accept: boolean;
+  scoring?: {
+    shadowPriceSum: number;
+    seatCost: number;
+    totalValue: number;
+    helpedAttributes: string[];
+  };
 }

@@ -100,7 +100,7 @@ shouldAdmitPerson(state: CurrentState, next: Person): StrategyDecision {
     threshold = 2.0;
   }
   
-  const accept = marginalValue > threshold;
+  const accept = marginalValue >= threshold;
   
   console.log(
     "src/strategy/PureShadowPricing.ts:%s - %s %s (marginal=%.3f, helps=%d, hurts=%d, threshold=%.1f, Σλ=%.3f)",

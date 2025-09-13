@@ -54,23 +54,35 @@ export function scorePerson(
 ): { totalValue: number; shadowPriceSum: number; seatCost: number; helpedAttributes: string[] } {
   const fn = "scorePerson";
   
+  
   // Σ_{c: p helps c} λ_c (sum shadow prices for constraints person helps)
   let shadowPriceSum = 0.0;
   const helpedAttributes: string[] = [];
-  
+
   for (const [attribute, hasAttribute] of Object.entries(person.attributes)) {
     if (hasAttribute) {  // Person helps this constraint
-      const lambda_c = dualTracker.getDualValue(attribute);  // λ_c
-      
-      // Always show attributes the person has (for display)
       helpedAttributes.push(attribute);
       
-      // Only count shadow price if λ > 0 (for value calculation)
+      // Find the constraint for this attribute
+      const constraint = state.constraints.find(c => c.attribute === attribute);
+      if (!constraint) continue; // Not a constrained attribute
+      
+      // Get current count from state.admittedAttributes
+      const currentCount = state.admittedAttributes[attribute] || 0;
+      const remainingNeed = constraint.minCount - currentCount;
+      
+      // Skip if constraint is already met
+      if (remainingNeed <= 0) {
+        console.log("src/strategy/PersonScorer.ts:%s - skipping %s: already met (%d/%d)", 
+          fn, attribute, currentCount, constraint.minCount);
+        continue;
+      }
+      
+      const lambda_c = dualTracker.getDualValue(attribute);
       if (lambda_c > 0) {
-        shadowPriceSum += lambda_c;  // Add λ_c to sum
-        
-        console.log("src/strategy/PersonScorer.ts:%s - person helps %s: λ=%f", 
-          fn, attribute, lambda_c);
+        shadowPriceSum += lambda_c;
+        console.log("src/strategy/PersonScorer.ts:%s - person helps %s: λ=%f (need %d more)", 
+          fn, attribute, lambda_c, remainingNeed);
       }
     }
   }

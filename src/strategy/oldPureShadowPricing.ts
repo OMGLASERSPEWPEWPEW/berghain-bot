@@ -4,7 +4,7 @@ import type { Strategy, StrategyDecision } from "./Strategy";
 import { DualTracker } from "./DualTracker";
 import { calculateAllSlacks } from "./SlackCalculator";
 import { scorePerson } from "./PersonScorer";
-import { computeDeficits, allMinimaMet, evaluateDecisionFeasibility, evaluateDecisionFeasibilityByLine, evaluateFeasibilityScore, FILLER_MIN_SLACK } from "../core/Feasibility";
+import { computeDeficits, allMinimaMet, evaluateDecisionFeasibility, evaluateDecisionFeasibilityByLine, FILLER_MIN_SLACK } from "../core/Feasibility";
 
 
 /**
@@ -32,86 +32,112 @@ export class PureShadowPricing implements Strategy {
     console.log("src/strategy/PureShadowPricing.ts:constructor - initialized pure shadow pricing strategy");
   }
 
+  // File: src/strategy/PureShadowPricing.ts (relative to project root)
 shouldAdmitPerson(state: CurrentState, next: Person): StrategyDecision {
   const fn = "shouldAdmitPerson";
 
   // Initialize duals on first call
   if (!this.isInitialized) {
-    this.dualTracker.initDuals(state.constraints, state.statistics);
+    this.dualTracker.initDuals(state.constraints, state.statistics);  // λ_c^(0) = 0 ∀c
     this.isInitialized = true;
     console.log("src/strategy/PureShadowPricing.ts:%s - initialized duals for %d constraints", fn, state.constraints.length);
   }
 
-  // Periodic dual updates
+  // Periodic dual updates (unchanged)
   const peopleProcessed = state.admittedCount + state.rejectedCount;
   if (peopleProcessed - this.lastDualUpdate >= PureShadowPricing.DUAL_UPDATE_FREQUENCY) {
     this.updateDualVariables(state);
     this.lastDualUpdate = peopleProcessed;
   }
 
-  // Get shadow price info for logging
+  // ===== NEW: compare feasibility of REJECT vs ACCEPT hypotheticals =====
+  const evalReject = evaluateDecisionFeasibilityByLine(state, state.statistics, null, false /* reject -> do not consume seat */);
+  const evalAccept = evaluateDecisionFeasibilityByLine(state, state.statistics, next,  true  /* accept -> consume seat & apply person */);
+  const deltaSlack = evalAccept.minSlack - evalReject.minSlack;
+  const bottleA = evalAccept.minSlackAttr ?? "n/a";
+  const bottleR = evalReject.minSlackAttr ?? "n/a";
+
+  // Hard guard #1: accepting would break feasibility -> reject outright.
+  if (evalReject.feasible && !evalAccept.feasible) {
+    console.log(
+      "src/strategy/PureShadowPricing.ts:%s - REJECT (accept would break feasibility; reject bottleneck=%s slack=%.2f, accept bottleneck=%s slack=%.2f, Δslack=%.2f)",
+      fn, bottleR, evalReject.minSlack, bottleA, evalAccept.minSlack, deltaSlack
+    );
+    return { accept: false };
+  }
+
+  // Hard guard #2: accepting restores feasibility while rejecting does not -> accept.
+  if (!evalReject.feasible && evalAccept.feasible) {
+    console.log(
+      "src/strategy/PureShadowPricing.ts:%s - ACCEPT (accept restores feasibility; accept bottleneck=%s slack=%.2f, reject bottleneck=%s slack=%.2f, Δslack=%.2f)",
+      fn, bottleA, evalAccept.minSlack, bottleR, evalReject.minSlack, deltaSlack
+    );
+    return { accept: true };
+  }
+
+  // Score via shadow prices: value(p) = Σλ_c - seat_cost_risk
   const score = scorePerson(next, this.dualTracker, state);
+
+  // Helper detection against *current* unmet constraints
   const deficits = computeDeficits(state);
   const helpsUnmetConstraint = this.helpsUnmetConstraints(next, deficits);
 
-  // Marginal feasibility scoring
-  const scoreIfReject = evaluateFeasibilityScore(state, state.statistics, null, false);
-  const scoreIfAccept = evaluateFeasibilityScore(state, state.statistics, next, true);
+  // If all minima are already satisfied, be conservative with filler
+  if (allMinimaMet(deficits)) {
+    const accept = score.totalValue >= PureShadowPricing.SAFE_FILLER_THRESHOLD;
 
-  // Base marginal value
-  let marginalValue = scoreIfAccept - scoreIfReject;
+    console.log(
+      "src/strategy/PureShadowPricing.ts:%s - %s safe filler (all constraints met; score=%.3f %s %.3f; Δslack=%.2f A:%s/%.2f R:%s/%.2f)",
+      fn, accept ? "ACCEPT" : "REJECT",
+      score.totalValue, accept ? "≥" : "<", PureShadowPricing.SAFE_FILLER_THRESHOLD,
+      deltaSlack, bottleA, evalAccept.minSlack, bottleR, evalReject.minSlack
+    );
 
-  // STRONGER opportunity cost penalty
-  const slacks = calculateAllSlacks(state).slacks;
-  let helpCount = 0;
-  let hurtCount = 0;
-
-  for (const [attr, hasAttr] of Object.entries(next.attributes)) {
-    if (hasAttr) {
-      const slack = slacks[attr] || 0;
-      if (slack > 20) {  // Oversupplied
-        hurtCount++;  // This person consumes an oversupplied constraint
-      } else if (slack < -20) {  // Undersupplied
-        helpCount++;  // This person helps an undersupplied constraint
+    return {
+      accept,
+      scoring: {
+        shadowPriceSum: score.shadowPriceSum,
+        seatCost: score.seatCost,
+        totalValue: score.totalValue,
+        helpedAttributes: score.helpedAttributes
       }
-    }
+    };
   }
 
-  // NEW RULE: Reject if hurting more than helping
-  if (hurtCount > helpCount) {
-    marginalValue -= 10.0;  // Massive penalty
-  }
-  
-  // Additional penalty based on how many seats remain
-  const seatsRemaining = 1000 - state.admittedCount;
-  const scarcityMultiplier = Math.max(1.0, 500 / Math.max(1, seatsRemaining));
-  
-  // As seats become scarce, be much pickier
-  if (seatsRemaining < 300 && hurtCount > 0) {
-    marginalValue -= 5.0 * hurtCount * scarcityMultiplier;
+  // ===== NEW: helper-only mode when bottleneck slack is tight =====
+  // When the REJECT-hypothetical bottleneck slack is below our global filler safety margin,
+  // do NOT allow a filler—only accept if this person helps an unmet constraint.
+  if (evalReject.minSlack < FILLER_MIN_SLACK && !helpsUnmetConstraint) {
+    console.log(
+      "src/strategy/PureShadowPricing.ts:%s - REJECT filler (tight bottleneck=%s slack=%.2f < threshold=%.2f; Δslack=%.2f)",
+      fn, bottleR, evalReject.minSlack, FILLER_MIN_SLACK, deltaSlack
+    );
+    return { accept: false };
   }
 
-  // Threshold based on admission rate
-  const admittedRatio = state.admittedCount / Math.max(1, state.admittedCount + state.rejectedCount);
-  let threshold = 0.0;
-  
-  // If we're admitting too many (>40%), raise the bar significantly
-  if (admittedRatio > 0.4) {
-    threshold = 2.0;
+  // Shadow-pricing decision thresholds (existing behavior)
+  let threshold: number;
+  let personType: string;
+
+  if (helpsUnmetConstraint) {
+    threshold = PureShadowPricing.HELPER_THRESHOLD;
+    personType = "helper";
+  } else {
+    threshold = PureShadowPricing.FILLER_THRESHOLD;
+    personType = "filler";
   }
-  
-  const accept = marginalValue > threshold;
-  
+
+  const accept = score.totalValue >= threshold;
+
   console.log(
-    "src/strategy/PureShadowPricing.ts:%s - %s %s (marginal=%.3f, helps=%d, hurts=%d, threshold=%.1f, Σλ=%.3f)",
+    "src/strategy/PureShadowPricing.ts:%s - %s %s (score=%.3f %s %.3f, Σλ=%.3f, cost=%.3f, helps:%s; Δslack=%.2f A:%s/%.2f R:%s/%.2f)",
     fn,
     accept ? "ACCEPT" : "REJECT",
-    helpsUnmetConstraint ? "helper" : "filler",
-    marginalValue,
-    helpCount,
-    hurtCount,
-    threshold,
-    score.shadowPriceSum
+    personType,
+    score.totalValue, accept ? "≥" : "<", threshold,
+    score.shadowPriceSum, score.seatCost,
+    score.helpedAttributes.join(",") || "none",
+    deltaSlack, bottleA, evalAccept.minSlack, bottleR, evalReject.minSlack
   );
 
   return {

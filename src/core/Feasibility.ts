@@ -173,3 +173,23 @@ function clamp01(x: number): number {
   if (x > 1) return 1;
   return x;
 }
+
+/**
+ * Compute a numerical feasibility score for a state
+ * Higher score = better feasibility
+ * 
+ * Score is based on the minimum slack (bottleneck constraint)
+ * This captures how close we are to violating our tightest constraint
+ */
+export function evaluateFeasibilityScore(
+  state: CurrentState,
+  statistics: AttributeStatistics,
+  personToAdd: Person | null = null,
+  consumeSeat: boolean = false
+): number {
+  const result = evaluateDecisionFeasibilityByLine(state, statistics, personToAdd, consumeSeat);
+  
+  // Use minimum slack as the score
+  // More positive = more buffer, more negative = deeper trouble
+  return result.minSlack;
+}

@@ -21,8 +21,8 @@ export class PureShadowPricing implements Strategy {
   private lastDualUpdate: number = 0;
   
   // Hyperparameters for pure shadow pricing
-  private static readonly DUAL_UPDATE_FREQUENCY = 5;    // Update λ every N people
-  private static readonly LEARNING_RATE = 0.3;          // η for dual updates (slightly higher)
+  private static readonly DUAL_UPDATE_FREQUENCY = 10;    // Update λ every N people
+  private static readonly LEARNING_RATE = 0.25;          // η for dual updates (slightly higher)
   private static readonly HELPER_THRESHOLD = 5.0;        // Min value for helpers
   private static readonly FILLER_THRESHOLD = -2.0;       // Min value for non-helpers (more permissive)
   private static readonly SAFE_FILLER_THRESHOLD = 2.0;   // When all constraints met, be conservative
@@ -100,7 +100,7 @@ shouldAdmitPerson(state: CurrentState, next: Person): StrategyDecision {
     threshold = 2.0;
   }
   
-  const accept = marginalValue >= threshold;
+  const accept = marginalValue > threshold;
   
   console.log(
     "src/strategy/PureShadowPricing.ts:%s - %s %s (marginal=%.3f, helps=%d, hurts=%d, threshold=%.1f, Σλ=%.3f)",

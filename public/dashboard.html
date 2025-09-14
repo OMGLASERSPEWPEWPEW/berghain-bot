@@ -246,14 +246,6 @@
             <div>Min Slack: <span id="minSlack">-</span></div>
             <div>Status: <span id="feasibilityStatus">-</span></div>
         </div>
-
-        <!-- <div class="feasibility-section">
-            <h2>Shadow Price Rankings</h2>
-            <div>Most Valued Constraint: <span id="topConstraint">-</span></div>
-            <div id="shadowPriceList">
-                 Shadow price rankings will appear here 
-            </div>
-        </div> -->
         
         <div class="decision-log">
             <h2>Recent Decisions</h2>
@@ -359,6 +351,7 @@
                             </div>
                             <span id="lambda-${constraint.attribute}" class="shadow-price">λ = 0.000</span>
                             <span id="slack-${constraint.attribute}" class="slack-value" style="margin-left: 10px; color: #cccccc; font-size: 0.9em;">slack = 0.000</span>
+                            <span id="rejected-${constraint.attribute}" class="rejected-count">rejected = 0</span>
                         </div>
                     </div>
                 `;

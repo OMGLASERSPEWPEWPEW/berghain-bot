@@ -22,10 +22,18 @@ export interface DecisionEvent {
   reason: string;
   timestamp: number;
   scoring?: {
-    shadowPriceSum: number;
-    seatCost: number;
-    totalValue: number;
-    helpedAttributes: string[];
+    // Dual-based strategy fields (for PureShadowPricing)
+    shadowPriceSum?: number;
+    seatCost?: number;
+    totalValue?: number;
+    helpedAttributes?: string[];
+    
+    // Primal-based strategy fields (for PrimalStrategy)
+    admissionProbability?: number;
+    lpOptimalValue?: number;
+    activeConstraints?: string[];
+    feasible?: boolean;
+    constraintSlacks?: Record<string, number>;
   };
 }
 

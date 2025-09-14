@@ -1,6 +1,6 @@
 // File: src/strategy/PacedFeasible.ts (relative to project root)
 import type { CurrentState, Person } from "../core/types";
-import type { Strategy } from "./Strategy";
+import type { Strategy, StrategyDecision } from "./Strategy";
 import {
   allMinimaMet,
   computeDeficits,
@@ -33,7 +33,7 @@ export class PacedFeasible implements Strategy {
   private static readonly HELPER_EPS = 0.0;   // we accept helpers on tie or better
   private static readonly FILLER_MARGIN = 0.3; // filler must improve slack by a bit
 
-  shouldAdmitPerson(state: CurrentState, next: Person): boolean {
+  shouldAdmitPerson(state: CurrentState, next: Person): StrategyDecision {
     const fn = "shouldAdmitPerson";
 
     const deficits = computeDeficits(state);
@@ -44,7 +44,7 @@ export class PacedFeasible implements Strategy {
     // If every minimum is met, fill remaining seats freely.
     if (allMinimaMet(deficits)) {
       console.log("src/strategy/PacedFeasible.ts:%s - ACCEPT filler (all minima satisfied)", fn);
-      return true;
+      return { accept: true };
     }
 
     // Does this person help any still-unmet constraint? Track which ones.
@@ -81,7 +81,7 @@ export class PacedFeasible implements Strategy {
           bottleR,
           evalReject.minSlack.toFixed(2)
         );
-        return false;
+        return { accept: false };
       }
       if (!evalReject.feasible && evalAccept.feasible) {
         console.log(
@@ -90,7 +90,7 @@ export class PacedFeasible implements Strategy {
           bottleA,
           evalAccept.minSlack.toFixed(2)
         );
-        return true;
+        return { accept: true };
       }
 
 
@@ -118,7 +118,7 @@ export class PacedFeasible implements Strategy {
             bottleR,
             trueDeltaSlackForBottleneck
           );
-          return true;
+          return { accept: true };
         } else {
           console.log(
             "src/strategy/PacedFeasible.ts:%s - REJECT helper (End-game logic: true Δslack for '%s' is %.2f)",
@@ -126,7 +126,7 @@ export class PacedFeasible implements Strategy {
             bottleR,
             trueDeltaSlackForBottleneck
           );
-          return false;
+          return { accept: false };
         }
       } else {
 
@@ -140,7 +140,8 @@ export class PacedFeasible implements Strategy {
               fn,
               deltaSlack.toFixed(2)
             );
-            return true;
+            return { accept: true };
+
           } else {
             // both infeasible: still prefer helper to reduce actual deficit
             console.log(
@@ -148,7 +149,8 @@ export class PacedFeasible implements Strategy {
               fn,
               deltaSlack.toFixed(2)
             );
-            return true;
+            return { accept: true };
+
           }
         }
 
@@ -161,14 +163,14 @@ export class PacedFeasible implements Strategy {
             fn,
             deltaSlack.toFixed(2)
           );
-          return true;
+          return { accept: true };
         } else {
           console.log(
             "src/strategy/PacedFeasible.ts:%s - REJECT helper (Standard logic; Δslack=%s)",
             fn,
             deltaSlack.toFixed(2)
           );
-          return false;
+          return { accept: false };
         }
       }
       
@@ -208,7 +210,7 @@ export class PacedFeasible implements Strategy {
         evalAccept.minSlack.toFixed(2),
         fillerThreshold.toFixed(2)
       );
-      return true;
+      return { accept: true };
     } else {
       console.log(
         "src/strategy/PacedFeasible.ts:%s - REJECT filler (accept bottleneck=%s slack=%s < threshold %s)",
@@ -217,7 +219,7 @@ export class PacedFeasible implements Strategy {
         evalAccept.minSlack.toFixed(2),
         fillerThreshold.toFixed(2)
       );
-      return false;
+      return { accept: false };
     }
   }
 }

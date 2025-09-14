@@ -1,9 +1,9 @@
 // File: src/strategy/PureShadowPricing.ts (relative to project root)
 import type { CurrentState, Person } from "../core/types";
 import type { Strategy, StrategyDecision } from "./Strategy";
-import { DualTracker } from "./DualTracker";
-import { calculateAllSlacks } from "./SlackCalculator";
-import { scorePerson } from "./PersonScorer";
+import { DualTracker } from "./ShadowPricingUtils/DualTracker";
+import { calculateAllSlacks } from "./ShadowPricingUtils/SlackCalculator";
+import { scorePerson } from "./ShadowPricingUtils/PersonScorer";
 import { computeDeficits, allMinimaMet, evaluateDecisionFeasibility, evaluateDecisionFeasibilityByLine, evaluateFeasibilityScore, FILLER_MIN_SLACK } from "../core/Feasibility";
 
 
@@ -63,43 +63,22 @@ shouldAdmitPerson(state: CurrentState, next: Person): StrategyDecision {
 
   // STRONGER opportunity cost penalty
   const slacks = calculateAllSlacks(state).slacks;
-  let helpCount = 0;
-  let hurtCount = 0;
 
-  for (const [attr, hasAttr] of Object.entries(next.attributes)) {
-    if (hasAttr) {
-      const slack = slacks[attr] || 0;
-      if (slack > 20) {  // Oversupplied
-        hurtCount++;  // This person consumes an oversupplied constraint
-      } else if (slack < -20) {  // Undersupplied
-        helpCount++;  // This person helps an undersupplied constraint
-      }
-    }
-  }
-
-  // NEW RULE: Reject if hurting more than helping
-  if (hurtCount > helpCount) {
-    marginalValue -= 10.0;  // Massive penalty
-  }
   
   // Additional penalty based on how many seats remain
   const seatsRemaining = 1000 - state.admittedCount;
   const scarcityMultiplier = Math.max(1.0, 500 / Math.max(1, seatsRemaining));
   
-  // As seats become scarce, be much pickier
-  if (seatsRemaining < 300 && hurtCount > 0) {
-    marginalValue -= 5.0 * hurtCount * scarcityMultiplier;
-  }
 
-  // Threshold based on admission rate
-  const admittedRatio = state.admittedCount / Math.max(1, state.admittedCount + state.rejectedCount);
+
+  
   let threshold = 0.0;
   
-  // If we're admitting too many (>40%), raise the bar significantly
-  if (admittedRatio > 0.4) {
-    threshold = 2.0;
-  }
+
   
+
+  console.log("src/strategy/PureShadowPricing.ts:%s - marginalValue", marginalValue);
+  console.log("src/strategy/PureShadowPricing.ts:%s - threshold", threshold);
   const accept = marginalValue > threshold;
   
   console.log(
@@ -108,8 +87,6 @@ shouldAdmitPerson(state: CurrentState, next: Person): StrategyDecision {
     accept ? "ACCEPT" : "REJECT",
     helpsUnmetConstraint ? "helper" : "filler",
     marginalValue,
-    helpCount,
-    hurtCount,
     threshold,
     score.shadowPriceSum
   );

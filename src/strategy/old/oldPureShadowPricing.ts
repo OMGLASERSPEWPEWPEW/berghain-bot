@@ -1,10 +1,10 @@
 // File: src/strategy/PureShadowPricing.ts (relative to project root)
-import type { CurrentState, Person } from "../core/types";
-import type { Strategy, StrategyDecision } from "./Strategy";
-import { DualTracker } from "./DualTracker";
-import { calculateAllSlacks } from "./SlackCalculator";
-import { scorePerson } from "./PersonScorer";
-import { computeDeficits, allMinimaMet, evaluateDecisionFeasibility, evaluateDecisionFeasibilityByLine, FILLER_MIN_SLACK } from "../core/Feasibility";
+import type { CurrentState, Person } from "../../core/types";
+import type { Strategy, StrategyDecision } from "../Strategy";
+import { DualTracker } from "../ShadowPricingUtils/DualTracker";
+import { calculateAllSlacks } from "../ShadowPricingUtils/SlackCalculator";
+import { scorePerson } from "../ShadowPricingUtils/PersonScorer";
+import { computeDeficits, allMinimaMet, evaluateDecisionFeasibility, evaluateDecisionFeasibilityByLine, FILLER_MIN_SLACK } from "../../core/Feasibility";
 
 
 /**

@@ -1,7 +1,7 @@
 // File: src/strategy/PersonScorer.ts (relative to project root)
-import type { Person, CurrentState } from "../core/types";
+import type { Person, CurrentState } from "../../core/types";
 import type { DualTracker } from "./DualTracker";
-import { VENUE_CAPACITY } from "../core/Feasibility";
+import { VENUE_CAPACITY } from "../../core/Feasibility";
 
 /**
  * Computes person value using shadow prices (dual variables)

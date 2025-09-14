@@ -11,8 +11,8 @@ import { dashboardEvents } from './web/DashboardEvents';
 import { PacedFeasible } from "./strategy/PacedFeasible";
 import { VENUE_CAPACITY, evaluateDecisionFeasibility } from "./core/Feasibility";
 import './web/server'; // Start web server in same process
-import { PacedFeasibleWithDuals } from "./strategy/PacedFeasibleWithDuals";
 import { PureShadowPricing } from "./strategy/PureShadowPricing";
+import { PrimalStrategy } from "./strategy/PrimalStrategy";
 
 const MAX_REJECTIONS = 20000;
 

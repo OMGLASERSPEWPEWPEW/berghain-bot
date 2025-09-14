@@ -1,6 +1,6 @@
 // File: src/strategy/DualTracker.ts (relative to project root)
-import type { Constraint, AttributeStatistics } from "../core/types";
-import { dashboardEvents } from '../web/DashboardEvents';
+import type { Constraint, AttributeStatistics } from "../../core/types";
+import { dashboardEvents } from '../../web/DashboardEvents';
 
 /**
  * Tracks shadow prices (dual variables) λ_c for each constraint c.

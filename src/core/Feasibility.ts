@@ -187,7 +187,7 @@ export function evaluateFeasibilityScore(
   personToAdd: Person | null = null,
   consumeSeat: boolean = false
 ): number {
-  const result = evaluateDecisionFeasibilityByLine(state, statistics, personToAdd, consumeSeat);
+  const result = evaluateDecisionFeasibility(state, statistics, personToAdd, consumeSeat);
   
   // Use minimum slack as the score
   // More positive = more buffer, more negative = deeper trouble

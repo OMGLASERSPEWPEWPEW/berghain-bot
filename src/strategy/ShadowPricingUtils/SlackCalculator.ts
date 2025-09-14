@@ -1,6 +1,6 @@
 // File: src/strategy/SlackCalculator.ts (relative to project root)
-import type { CurrentState } from "../core/types";
-import { VENUE_CAPACITY, SAFETY_Z } from "../core/Feasibility";
+import type { CurrentState } from "../../core/types";
+import { VENUE_CAPACITY, SAFETY_Z } from "../../core/Feasibility";
 
 /**
  * Computes slack values for dual variable updates

@@ -4,12 +4,21 @@ import type { Constraint, CurrentState, Person } from "./types";
 /** Initialize CurrentState from constraints/statistics. */
 export function initState(constraints: Constraint[], statistics: CurrentState["statistics"]): CurrentState {
   const admittedAttributes: Record<string, number> = {};
-  for (const c of constraints) admittedAttributes[c.attribute] = 0;
-  console.log("src/core/StateTracker.ts:initState - initialized state with %d constraints", constraints.length);
+  const rejectedAttributes: Record<string, number> = {};
+
+  for (const c of constraints)
+    { 
+      admittedAttributes[c.attribute] = 0;
+      rejectedAttributes[c.attribute] = 0;
+    }
+      console.log("src/core/StateTracker.ts:initState - initialized state with %d constraints", constraints.length);
+
+
   return {
     admittedCount: 0,
     rejectedCount: 0,
     admittedAttributes,
+    rejectedAttributes,
     constraints,
     statistics
   };
@@ -28,6 +37,12 @@ export function updateStateAfterDecision(state: CurrentState, person: Person, ac
     }
   } else {
     state.rejectedCount += 1;
+
+    for (const [attr, val] of Object.entries(person.attributes)) {
+      if (val && attr in state.rejectedAttributes) {
+        state.rejectedAttributes[attr] = (state.rejectedAttributes[attr] ?? 0) + 1;
+      }
+    }
   }
   console.log("src/core/StateTracker.ts:%s - admitted=%d rejected=%d", fn, state.admittedCount, state.rejectedCount);
 }

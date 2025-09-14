@@ -246,14 +246,6 @@
             <div>Min Slack: <span id="minSlack">-</span></div>
             <div>Status: <span id="feasibilityStatus">-</span></div>
         </div>
-
-        <!-- <div class="feasibility-section">
-            <h2>Shadow Price Rankings</h2>
-            <div>Most Valued Constraint: <span id="topConstraint">-</span></div>
-            <div id="shadowPriceList">
-                 Shadow price rankings will appear here 
-            </div>
-        </div> -->
         
         <div class="decision-log">
             <h2>Recent Decisions</h2>
@@ -359,6 +351,7 @@
                             </div>
                             <span id="lambda-${constraint.attribute}" class="shadow-price">λ = 0.000</span>
                             <span id="slack-${constraint.attribute}" class="slack-value" style="margin-left: 10px; color: #cccccc; font-size: 0.9em;">slack = 0.000</span>
+                            <span id="rejected-${constraint.attribute}" class="rejected-count" style="margin-left: 10px; color: #ff6666; font-size: 0.9em;">rejected = 0</span>
                         </div>
                     </div>
                 `;
@@ -382,7 +375,9 @@
             
             data.constraints.forEach(constraint => {
                 const current = data.admittedAttributes[constraint.attribute] || 0;
+                const rejected = data.rejectedAttributes[constraint.attribute] || 0; // NEW
                 const tallyElement = document.getElementById(`tally-${constraint.attribute}`);
+                const rejectedElement = document.getElementById(`rejected-${constraint.attribute}`); // NEW
                 const progressElement = document.getElementById(`progress-${constraint.attribute}`);
                 
                 if (tallyElement) {
@@ -404,6 +399,11 @@
                     } else {
                         tallyElement.style.color = '#ff4444'; // Red when far from target
                     }
+                }
+                
+                // NEW: Update rejected count display
+                if (rejectedElement) {
+                    rejectedElement.textContent = `rejected = ${rejected}`;
                 }
             });
         }

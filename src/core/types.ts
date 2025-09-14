@@ -51,7 +51,8 @@ export type DecideAndNextResponse =
 export interface CurrentState {
   admittedCount: number;
   rejectedCount: number;
-  admittedAttributes: Record<string, number>; // counts per attributeId
+  admittedAttributes: Record<string, number>;
+  rejectedAttributes: Record<string, number>; 
   constraints: Constraint[];
   statistics: AttributeStatistics;
 }
